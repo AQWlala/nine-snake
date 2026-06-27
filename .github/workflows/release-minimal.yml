@@ -93,7 +93,7 @@ jobs:
 
       - name: Install JS deps
         shell: bash
-        run: npm ci
+        run: npm install
 
       - name: Build frontend
         shell: bash

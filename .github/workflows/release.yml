@@ -73,7 +73,7 @@ jobs:
           cache: 'npm'
 
       - name: Install JS deps
-        run: npm ci
+        run: npm install
 
       - name: Generate icons
         shell: bash
