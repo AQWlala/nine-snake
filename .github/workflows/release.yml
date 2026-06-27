@@ -42,6 +42,15 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Configure cargo retry
+        shell: bash
+        run: |
+          mkdir -p ~/.cargo
+          cat >> ~/.cargo/config.toml << 'EOF'
+          [net]
+          retry = 5
+          EOF
+
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:

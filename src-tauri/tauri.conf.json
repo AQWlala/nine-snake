@@ -3,7 +3,7 @@
   "productName": "nine-snake",
   "mainBinaryName": "nine-snake",
   "version": "1.1.0",
-  "identifier": "com.nine-snake.app",
+  "identifier": "com.nine-snake.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
