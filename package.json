@@ -1,6 +1,6 @@
 {
   "name": "nine-snake",
-  "version": "1.1.0",
+  "version": "1.1.4",
   "description": "A multi-headed AI agent that grows with you. 砍掉一个，长出两个。",
   "private": true,
   "type": "module",
