@@ -1,10 +1,19 @@
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
+use bytes::Bytes;
+use http_body_util::BodyExt;
 use tracing::info;
 
 use crate::AppState;
+
+type BoxBody = http_body_util::combinators::BoxBody<Bytes, Infallible>;
+
+fn full_body(data: Vec<u8>) -> BoxBody {
+    http_body_util::Full::new(Bytes::from(data)).boxed()
+}
 
 #[cfg(feature = "grpc")]
 pub struct RestApiServer {
@@ -52,22 +61,22 @@ impl RestApiServer {
                 };
 
                 let body_bytes = serde_json::to_vec(&body).unwrap_or_default();
-                let resp = match http::Response::builder()
+                let resp = match hyper::Response::builder()
                     .status(status)
                     .header("content-type", "application/json")
-                    .body(hyper::body::Bytes::from(body_bytes))
+                    .body(full_body(body_bytes))
                 {
                     Ok(r) => r,
                     Err(e) => {
                         tracing::error!(error = %e, "failed to build REST response");
-                        http::Response::builder()
+                        hyper::Response::builder()
                             .status(500)
                             .header("content-type", "application/json")
-                            .body(hyper::body::Bytes::from(r#"{"error":"internal"}"#))
+                            .body(full_body(Vec::new()))
                             .unwrap()
                     }
                 };
-                Ok::<_, std::convert::Infallible>(resp)
+                Ok::<_, Infallible>(resp)
             }
         };
 
