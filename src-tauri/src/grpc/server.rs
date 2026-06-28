@@ -50,7 +50,7 @@ use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
 
 use super::proto::*;
-
+use crate::api::server::NineSnakeService;
 use crate::skills::types as skill_types;
 use crate::AppState;
 
@@ -59,7 +59,7 @@ use crate::AppState;
 
 macro_rules! decode_and_dispatch {
     ($bytes:expr, $decode:expr) => {{
-        $decode($bytes).map_err(|e| GrpcError::invalid_argument(format!("decode error: {}", e)))
+        $decode($bytes).map(|body| body.0).map_err(|e| GrpcError::invalid_argument(format!("decode error: {}", e)))
     }};
 }
 
@@ -257,11 +257,13 @@ impl NineSnakeService for NineSnakeServiceImpl {
     async fn store(&self, req: StoreMemoryRequest) -> Result<StoreMemoryResponse, GrpcError> {
         let layer = layer_to_rust(req.layer);
         let memory_type = memory_type_to_rust(req.memory_type);
+        let source = req.source.parse::<crate::memory::SourceKind>()
+            .unwrap_or(crate::memory::SourceKind::UserInput);
         let command_req = crate::api::server::StoreMemoryRequest {
             content: req.content,
             memory_type,
             layer,
-            source: req.source,
+            source,
             metadata: if req.metadata_json.is_empty() {
                 None
             } else {

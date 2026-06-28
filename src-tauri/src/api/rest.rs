@@ -49,7 +49,7 @@ impl RestApiServer {
                     }
 
                     ("GET", "/api/skills") => {
-                        match state.skills.list(Default::default()).await {
+                        match state.skills.list_skills(Default::default()) {
                             Ok(skills) => (200, serde_json::json!({"skills": skills})),
                             Err(e) => (500, serde_json::json!({"error": e.to_string()})),
                         }
