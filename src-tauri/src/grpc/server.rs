@@ -50,7 +50,7 @@ use tokio::sync::oneshot;
 use tracing::{debug, error, info, warn};
 
 use super::proto::*;
-use crate::commands;
+
 use crate::skills::types as skill_types;
 use crate::AppState;
 
@@ -268,7 +268,7 @@ impl NineSnakeService for NineSnakeServiceImpl {
                 Some(serde_json::from_str(&req.metadata_json).map_err(|e| GrpcError::internal(e.to_string()))?)
             },
         };
-        let resp = commands::memory_store(self.state.clone(), command_req)
+        let resp = self.state.memory_store(command_req)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(StoreMemoryResponse {
@@ -279,15 +279,18 @@ impl NineSnakeService for NineSnakeServiceImpl {
     }
 
     async fn get(&self, req: GetMemoryRequest) -> Result<Memory, GrpcError> {
-        let m = commands::memory_get(self.state.clone(), req.id)
+        let sqlite = self.state.sqlite.clone();
+        let id = req.id;
+        let m = tokio::task::spawn(async move { sqlite.get(&id).await })
             .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?
             .map_err(|e| GrpcError::internal(e.to_string()))?
             .ok_or_else(|| GrpcError::not_found("memory not found"))?;
         Ok(memory_to_proto(m))
     }
 
     async fn search(&self, req: SearchRequest) -> Result<SearchResponse, GrpcError> {
-        let command_req = commands::api::SearchMemoryRequest {
+        let command_req = crate::api::server::SearchMemoryRequest {
             query: req.query,
             k: if req.k == 0 { 10 } else { req.k as usize },
             layer: if matches!(req.layer, MemoryLayer::Unspecified) {
@@ -296,21 +299,23 @@ impl NineSnakeService for NineSnakeServiceImpl {
                 Some(layer_to_rust(req.layer))
             },
         };
-        let hits = commands::memory_search(self.state.clone(), command_req)
+        let hits = self.state.memory_search(command_req)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(SearchResponse {
             hits: hits
                 .into_iter()
-                .map(|(m, score)| SearchHit { memory: memory_to_proto(m), score })
+                .map(|h| SearchHit { memory: memory_to_proto(h.memory), score: h.score })
                 .collect(),
         })
     }
 
     async fn list_recent(&self, req: ListRecentRequest) -> Result<ListRecentResponse, GrpcError> {
         let limit = if req.limit == 0 { 20 } else { req.limit as usize };
-        let mems = commands::memory_list_recent(self.state.clone(), limit)
+        let sqlite = self.state.sqlite.clone();
+        let mems = tokio::task::spawn(async move { sqlite.list_recent(limit).await })
             .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(ListRecentResponse {
             memories: mems.into_iter().map(memory_to_proto).collect(),
@@ -321,26 +326,38 @@ impl NineSnakeService for NineSnakeServiceImpl {
         &self,
         req: UpdateImportanceRequest,
     ) -> Result<Memory, GrpcError> {
-        let m = commands::memory_update_importance(
-            self.state.clone(),
-            req.id,
-            req.importance.clamp(0.0, 1.0),
-        )
-        .await
-        .map_err(|e| GrpcError::internal(e.to_string()))?;
+        let sqlite = self.state.sqlite.clone();
+        let id = req.id.clone();
+        let importance = req.importance.clamp(0.0, 1.0);
+        let m = tokio::task::spawn(async move { sqlite.update_importance(&id, importance).await })
+            .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?
+            .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(memory_to_proto(m))
     }
 
     async fn delete(&self, req: DeleteRequest) -> Result<DeleteResponse, GrpcError> {
-        let deleted = commands::memory_delete(self.state.clone(), req.id)
+        let sqlite = self.state.sqlite.clone();
+        let lance = self.state.lance.clone();
+        let id = req.id.clone();
+        let deleted = tokio::task::spawn(async move { sqlite.delete(&id).await })
             .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?
             .map_err(|e| GrpcError::internal(e.to_string()))?;
+        if deleted {
+            if let Err(e) = lance.delete(&req.id).await {
+                tracing::warn!(target: "nine_snake.grpc", error = ?e, "lance delete failed");
+            }
+        }
         Ok(DeleteResponse { deleted })
     }
 
     async fn get_many(&self, req: GetManyRequest) -> Result<GetManyResponse, GrpcError> {
-        let mems = commands::memory_get_many(self.state.clone(), req.ids)
+        let sqlite = self.state.sqlite.clone();
+        let ids = req.ids;
+        let mems = tokio::task::spawn(async move { sqlite.get_many(&ids).await })
             .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(GetManyResponse {
             memories: mems.into_iter().map(memory_to_proto).collect(),
@@ -348,46 +365,41 @@ impl NineSnakeService for NineSnakeServiceImpl {
     }
 
     async fn get_stats(&self, _req: StatsRequest) -> Result<StatsResponse, GrpcError> {
-        let s = commands::memory_stats(self.state.clone())
+        let sqlite = self.state.sqlite.clone();
+        let rows = tokio::task::spawn(async move { sqlite.counts_per_layer().await })
             .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?
             .map_err(|e| GrpcError::internal(e.to_string()))?;
+        let total = rows.values().sum();
         Ok(StatsResponse {
-            total_memories: s.total,
-            by_layer_l0: s.by_layer.get(&crate::memory::MemoryLayer::L0).copied().unwrap_or(0),
-            by_layer_l1: s.by_layer.get(&crate::memory::MemoryLayer::L1).copied().unwrap_or(0),
-            by_layer_l2: s.by_layer.get(&crate::memory::MemoryLayer::L2).copied().unwrap_or(0),
-            by_layer_l3: s.by_layer.get(&crate::memory::MemoryLayer::L3).copied().unwrap_or(0),
-            by_layer_l4: s.by_layer.get(&crate::memory::MemoryLayer::L4).copied().unwrap_or(0),
-            by_layer_l5: s.by_layer.get(&crate::memory::MemoryLayer::L5).copied().unwrap_or(0),
-            by_layer_l6: s.by_layer.get(&crate::memory::MemoryLayer::L6).copied().unwrap_or(0),
-            by_layer_l7: s.by_layer.get(&crate::memory::MemoryLayer::L7).copied().unwrap_or(0),
+            total_memories: total,
+            by_layer_l0: rows.get(&crate::memory::MemoryLayer::L0).copied().unwrap_or(0),
+            by_layer_l1: rows.get(&crate::memory::MemoryLayer::L1).copied().unwrap_or(0),
+            by_layer_l2: rows.get(&crate::memory::MemoryLayer::L2).copied().unwrap_or(0),
+            by_layer_l3: rows.get(&crate::memory::MemoryLayer::L3).copied().unwrap_or(0),
+            by_layer_l4: rows.get(&crate::memory::MemoryLayer::L4).copied().unwrap_or(0),
+            by_layer_l5: rows.get(&crate::memory::MemoryLayer::L5).copied().unwrap_or(0),
+            by_layer_l6: rows.get(&crate::memory::MemoryLayer::L6).copied().unwrap_or(0),
+            by_layer_l7: rows.get(&crate::memory::MemoryLayer::L7).copied().unwrap_or(0),
         })
     }
 
     // ---- Swarm ----------------------------------------------------------
 
     async fn swarm_execute(&self, req: SwarmRequest) -> Result<SwarmResponse, GrpcError> {
-        let pipeline: Vec<crate::swarm::AgentKind> = req
-            .pipeline
-            .iter()
-            .map(|k| match *k {
-                AgentKind::Coder => crate::swarm::AgentKind::Coder,
-                AgentKind::Writer => crate::swarm::AgentKind::Writer,
-                AgentKind::Reviewer => crate::swarm::AgentKind::Reviewer,
-                AgentKind::Unspecified => crate::swarm::AgentKind::Coder, // safe default
-            })
-            .collect();
+        let agents: Vec<String> = req.pipeline.iter().map(|k| agent_kind_to_rust(*k)).collect();
         let task = crate::swarm::SwarmTask {
             description: req.description,
-            pipeline: Some(pipeline),
+            agent_count: if agents.is_empty() { 3 } else { agents.len().clamp(2, 6) as u32 },
             max_retries: req.max_retries,
+            agents,
         };
-        let result = commands::swarm_execute(self.state.clone(), task)
+        let result = self.state.swarm_execute(task)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(SwarmResponse {
             approved: result.approved,
-            verdict: result.verdict.unwrap_or_default(),
+            verdict: String::new(),
             outputs: result
                 .outputs
                 .into_iter()
@@ -402,9 +414,7 @@ impl NineSnakeService for NineSnakeServiceImpl {
     }
 
     async fn list_agents(&self, _req: ListAgentsRequest) -> Result<ListAgentsResponse, GrpcError> {
-        let agents = commands::swarm_list_agents(self.state.clone())
-            .await
-            .map_err(|e| GrpcError::internal(e.to_string()))?;
+        let agents = self.state.swarm.list_agents();
         Ok(ListAgentsResponse {
             agents: agents
                 .into_iter()
@@ -420,9 +430,7 @@ impl NineSnakeService for NineSnakeServiceImpl {
 
     async fn get_agent(&self, req: GetAgentRequest) -> Result<Agent, GrpcError> {
         let kind_str = agent_kind_to_rust(req.kind);
-        let agent = commands::swarm_get_agent(self.state.clone(), kind_str.clone())
-            .await
-            .map_err(|e| GrpcError::internal(e.to_string()))?
+        let agent = self.state.swarm.get_agent(&kind_str)
             .ok_or_else(|| GrpcError::not_found(format!("agent {kind_str}")))?;
         Ok(Agent {
             kind: req.kind,
@@ -472,7 +480,8 @@ impl NineSnakeService for NineSnakeServiceImpl {
     // ---- Reflect --------------------------------------------------------
 
     async fn reflect_now(&self, _req: ReflectRequest) -> Result<ReflectResponse, GrpcError> {
-        let rows = commands::reflect_now(self.state.clone())
+        let engine = self.state.reflection.clone();
+        let rows = engine.reflect_now()
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(ReflectResponse {
@@ -485,8 +494,10 @@ impl NineSnakeService for NineSnakeServiceImpl {
         req: ListReflectionsRequest,
     ) -> Result<ListReflectionsResponse, GrpcError> {
         let limit = if req.limit == 0 { 20 } else { req.limit as usize };
-        let rows = commands::list_reflections(self.state.clone(), limit)
+        let engine = self.state.reflection.clone();
+        let rows = tokio::task::spawn_blocking(move || engine.list_recent(limit))
             .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(ListReflectionsResponse {
             reflections: rows.into_iter().map(reflection_to_proto).collect(),
@@ -497,8 +508,11 @@ impl NineSnakeService for NineSnakeServiceImpl {
         &self,
         req: GetReflectionRequest,
     ) -> Result<Reflection, GrpcError> {
-        let r = commands::get_reflection(self.state.clone(), req.id)
+        let engine = self.state.reflection.clone();
+        let id = req.id;
+        let r = tokio::task::spawn_blocking(move || engine.get(&id))
             .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?
             .map_err(|e| GrpcError::internal(e.to_string()))?
             .ok_or_else(|| GrpcError::not_found("reflection not found"))?;
         Ok(reflection_to_proto(r))
@@ -507,8 +521,7 @@ impl NineSnakeService for NineSnakeServiceImpl {
     // ---- LLM ------------------------------------------------------------
 
     async fn complete(&self, req: CompleteRequest) -> Result<CompleteResponse, GrpcError> {
-        let model = if req.model.is_empty() { None } else { Some(req.model) };
-        let text = commands::llm_complete(self.state.clone(), req.prompt, model)
+        let text = self.state.llm_complete(req.prompt)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(CompleteResponse {
@@ -520,25 +533,28 @@ impl NineSnakeService for NineSnakeServiceImpl {
     }
 
     async fn chat(&self, req: ChatRequest) -> Result<ChatResponse, GrpcError> {
-        let messages: Vec<(String, String)> = req
+        let msgs: Vec<crate::llm::ChatMessage> = req
             .messages
             .into_iter()
-            .map(|m| (m.role, m.content))
+            .map(|m| crate::llm::ChatMessage { role: m.role, content: m.content })
             .collect();
         let model = if req.model.is_empty() { None } else { Some(req.model) };
-        let r = commands::llm_chat(self.state.clone(), messages, model)
-            .await
-            .map_err(|e| GrpcError::internal(e.to_string()))?;
+        let resp = if let Some(ref m) = model {
+            self.state.llm.chat_with_model(m, msgs).await
+        } else {
+            self.state.llm.chat(msgs).await
+        }
+        .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(ChatResponse {
-            message: ChatMessage { role: r.role, content: r.content },
-            model: r.model,
-            eval_count: r.eval_count,
-            total_duration_ns: r.total_duration_ns,
+            message: ChatMessage { role: resp.message.role, content: resp.message.content },
+            model: resp.model,
+            eval_count: resp.eval_count.unwrap_or(0) as i64,
+            total_duration_ns: resp.total_duration.unwrap_or(0) as i64,
         })
     }
 
     async fn embed(&self, req: EmbedRequest) -> Result<EmbedResponse, GrpcError> {
-        let v = commands::llm_embed(self.state.clone(), req.text)
+        let v = self.state.embedder.embed(&req.text)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         let dim = v.len() as u32;
@@ -548,8 +564,7 @@ impl NineSnakeService for NineSnakeServiceImpl {
     // ---- Skills ---------------------------------------------------------
 
     async fn skill_create(&self, req: CreateSkillRequest) -> Result<Skill, GrpcError> {
-        let r = commands::skill_create(
-            self.state.clone(),
+        let r = self.state.skills.create_skill(
             skill_types::CreateSkillRequest {
                 name: req.name,
                 description: req.description,
@@ -561,16 +576,15 @@ impl NineSnakeService for NineSnakeServiceImpl {
                 } else {
                     Some(req.source_memory_id)
                 },
+                ..Default::default()
             },
         )
-        .await
         .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(skill_to_proto(r))
     }
 
     async fn skill_use(&self, req: UseSkillRequest) -> Result<UseSkillResponse, GrpcError> {
-        let r = commands::skill_use(
-            self.state.clone(),
+        let r = self.state.skills.use_skill(
             skill_types::UseSkillRequest {
                 id: req.id,
                 params: req.params,
@@ -589,28 +603,24 @@ impl NineSnakeService for NineSnakeServiceImpl {
     }
 
     async fn skill_rate(&self, req: RateSkillRequest) -> Result<Skill, GrpcError> {
-        let r = commands::skill_rate(
-            self.state.clone(),
+        let r = self.state.skills.rate_skill(
             skill_types::RateSkillRequest {
                 id: req.id,
                 rating: req.rating,
             },
         )
-        .await
         .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(skill_to_proto(r))
     }
 
     async fn skill_list(&self, req: ListSkillsRequest) -> Result<ListSkillsResponse, GrpcError> {
-        let r = commands::skill_list(
-            self.state.clone(),
+        let r = self.state.skills.list_skills(
             skill_types::ListSkillsRequest {
                 language: if req.language.is_empty() { None } else { Some(req.language) },
                 tag: if req.tag.is_empty() { None } else { Some(req.tag) },
                 limit: if req.limit == 0 { 50 } else { req.limit },
             },
         )
-        .await
         .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(ListSkillsResponse {
             skills: r.into_iter().map(skill_to_proto).collect(),
@@ -621,14 +631,12 @@ impl NineSnakeService for NineSnakeServiceImpl {
         &self,
         req: SearchSkillsRequest,
     ) -> Result<SearchSkillsResponse, GrpcError> {
-        let r = commands::skill_search(
-            self.state.clone(),
+        let r = self.state.skills.search_skills(
             skill_types::SkillSearchRequest {
                 query: req.query,
                 limit: if req.limit == 0 { 50 } else { req.limit },
             },
         )
-        .await
         .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(SearchSkillsResponse {
             skills: r.into_iter().map(skill_to_proto).collect(),
