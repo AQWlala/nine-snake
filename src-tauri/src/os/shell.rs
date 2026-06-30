@@ -491,7 +491,10 @@ mod tests {
     }
 
     async fn exec_timeout_with_python() {
-        let ex = ShellExecutor::new().with_timeout(Duration::from_millis(200));
+        let ex = ShellExecutor::new()
+            .allow("python")
+            .allow("python3")
+            .with_timeout(Duration::from_millis(200));
         // `python -c "import time; time.sleep(60)"` is universally
         // available on Windows + Unix.
         let argv: Vec<String> = vec![
