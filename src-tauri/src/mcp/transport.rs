@@ -10,11 +10,18 @@ pub enum McpTransport {
 }
 
 impl McpTransport {
-    pub fn from_config(transport_type: &McpTransportType, command: Option<&str>, url: Option<&str>) -> Result<Self> {
+    pub fn from_config(
+        transport_type: &McpTransportType,
+        command: Option<&str>,
+        url: Option<&str>,
+    ) -> Result<Self> {
         match transport_type {
             McpTransportType::Stdio => {
-                let cmd = command.ok_or_else(|| anyhow::anyhow!("stdio transport requires a command"))?;
-                Ok(McpTransport::Stdio { command: cmd.to_string() })
+                let cmd =
+                    command.ok_or_else(|| anyhow::anyhow!("stdio transport requires a command"))?;
+                Ok(McpTransport::Stdio {
+                    command: cmd.to_string(),
+                })
             }
             McpTransportType::Http => {
                 let u = url.ok_or_else(|| anyhow::anyhow!("http transport requires a url"))?;

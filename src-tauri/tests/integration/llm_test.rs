@@ -53,10 +53,15 @@ async fn real_chat_against_ollama() {
     .expect("chat timeout (60s)")
     .expect("chat failed");
 
-    assert!(!resp.message.content.is_empty(), "chat returned empty content");
-    assert!(resp.message.content.to_lowercase().contains("pong"),
-            "expected 'pong' in reply, got: {:?}",
-            resp.message.content);
+    assert!(
+        !resp.message.content.is_empty(),
+        "chat returned empty content"
+    );
+    assert!(
+        resp.message.content.to_lowercase().contains("pong"),
+        "expected 'pong' in reply, got: {:?}",
+        resp.message.content
+    );
 }
 
 #[tokio::test]
@@ -67,23 +72,24 @@ async fn real_embed_against_ollama() {
         return;
     }
     let client = std::sync::Arc::new(OllamaClient::new(OLLAMA_URL));
-    let embedder = nine_snake_lib::memory::embedder::Embedder::new(
-        (*client).clone(),
-        EMBED_MODEL,
-        768,
-    );
-    let vec = tokio::time::timeout(
-        Duration::from_secs(60),
-        embedder.embed("hello world"),
-    )
-    .await
-    .expect("embed timeout (60s)")
-    .expect("embed failed");
+    let embedder =
+        nine_snake_lib::memory::embedder::Embedder::new((*client).clone(), EMBED_MODEL, 768);
+    let vec = tokio::time::timeout(Duration::from_secs(60), embedder.embed("hello world"))
+        .await
+        .expect("embed timeout (60s)")
+        .expect("embed failed");
 
-    assert_eq!(vec.len(), 768, "expected 768-dim embedding, got {}", vec.len());
+    assert_eq!(
+        vec.len(),
+        768,
+        "expected 768-dim embedding, got {}",
+        vec.len()
+    );
     let norm: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt();
-    assert!((norm - 1.0).abs() < 0.5,
-            "embedding norm should be near 1.0, got {norm}");
+    assert!(
+        (norm - 1.0).abs() < 0.5,
+        "embedding norm should be near 1.0, got {norm}"
+    );
 }
 
 #[tokio::test]
@@ -109,6 +115,8 @@ async fn real_swarm_run_against_ollama() {
     .expect("swarm failed");
 
     assert!(!report.outputs.is_empty(), "swarm produced no outputs");
-    assert!(report.outputs.iter().any(|o| !o.body.trim().is_empty()),
-            "at least one agent should have produced non-empty output");
+    assert!(
+        report.outputs.iter().any(|o| !o.body.trim().is_empty()),
+        "at least one agent should have produced non-empty output"
+    );
 }

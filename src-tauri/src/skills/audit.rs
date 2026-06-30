@@ -115,7 +115,8 @@ pub fn truncate_summary(text: &str) -> String {
 pub fn redact_if_sensitive(text: &str) -> String {
     if sensitive_text_predicate(text) {
         let truncated = truncate_summary(text);
-        truncated.chars()
+        truncated
+            .chars()
             .map(|c| if c.is_whitespace() { c } else { 'X' })
             .collect()
     } else {

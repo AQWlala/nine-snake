@@ -5,7 +5,6 @@
 //! simple — they serve as examples users can inspect, modify, or
 //! use as templates for their own skills.
 
-
 use tracing::info;
 
 use crate::skills::types::{CreateSkillRequest, Skill};
@@ -13,9 +12,7 @@ use crate::skills::types::{CreateSkillRequest, Skill};
 /// Seed three demo skills into the skill engine.
 ///
 /// Idempotent: skips any skill whose name already exists in the store.
-pub fn seed_demo_skills(
-    engine: &crate::skills::engine::SkillEngine,
-) -> anyhow::Result<Vec<Skill>> {
+pub fn seed_demo_skills(engine: &crate::skills::engine::SkillEngine) -> anyhow::Result<Vec<Skill>> {
     let demo_skills: Vec<CreateSkillRequest> = vec![
         // Skill 1: Hello World (Python)
         CreateSkillRequest {
@@ -92,13 +89,11 @@ Be concise. Flag severity: [critical] [warning] [nit].
 
     for req in demo_skills {
         // Idempotent: skip if already seeded
-        let existing = engine.list_skills(
-            crate::skills::types::ListSkillsRequest {
-                language: None,
-                tag: None,
-                limit: 100,
-            }
-        )?;
+        let existing = engine.list_skills(crate::skills::types::ListSkillsRequest {
+            language: None,
+            tag: None,
+            limit: 100,
+        })?;
 
         if existing.iter().any(|s| s.name == req.name) {
             info!(

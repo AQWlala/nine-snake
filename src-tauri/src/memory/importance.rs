@@ -67,7 +67,12 @@ pub struct ImportanceWeights {
 impl Default for ImportanceWeights {
     /// v1.0 P0#6: matches `docs/ARCHITECTURE.md` §10.1.
     fn default() -> Self {
-        Self { access: 0.05, recency: 0.20, feedback: 0.20, base: 0.5 }
+        Self {
+            access: 0.05,
+            recency: 0.20,
+            feedback: 0.20,
+            base: 0.5,
+        }
     }
 }
 

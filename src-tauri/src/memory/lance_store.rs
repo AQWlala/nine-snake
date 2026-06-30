@@ -39,9 +39,9 @@ use arrow_array::{
 #[cfg(feature = "vector-store")]
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 #[cfg(feature = "vector-store")]
-use lancedb::{connect, Connection, Table};
-#[cfg(feature = "vector-store")]
 use lancedb::query::{ExecutableQuery, QueryBase};
+#[cfg(feature = "vector-store")]
+use lancedb::{connect, Connection, Table};
 
 /// Type alias for the on-disk table handle. With the `vector-store`
 /// feature, this is a real `lancedb::Table`; without it, it's a unit
@@ -117,9 +117,8 @@ impl LanceStore {
         let path_str = path.as_ref().to_string_lossy().to_string();
         if let Some(parent) = path.as_ref().parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent).with_context(|| {
-                    format!("creating lance dir: {}", parent.display())
-                })?;
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("creating lance dir: {}", parent.display()))?;
             }
         }
         let schema = build_schema(dim);
@@ -161,7 +160,11 @@ impl LanceStore {
                 }
                 Err(_) => {
                     // Table missing — create empty.
-                    match conn.create_empty_table(TABLE_NAME, schema.clone()).execute().await {
+                    match conn
+                        .create_empty_table(TABLE_NAME, schema.clone())
+                        .execute()
+                        .await
+                    {
                         Ok(t) => {
                             info!(target: "nine_snake.memory", path = %path_str, dim, "lance store opened (created empty table)");
                             Some(t)
@@ -520,7 +523,8 @@ mod tests {
         let r = s.search(&[1.0, 0.0, 0.0, 0.0], 3).await.unwrap();
         assert_eq!(r.len(), 3, "expected 3 hits, got {r:?}");
         // a and c are identical to the query; either may come first.
-        let top: std::collections::HashSet<_> = r.iter().take(2).map(|(id, _)| id.clone()).collect();
+        let top: std::collections::HashSet<_> =
+            r.iter().take(2).map(|(id, _)| id.clone()).collect();
         assert!(top.contains("a") && top.contains("c"));
         let _ = std::fs::remove_dir_all(path);
     }

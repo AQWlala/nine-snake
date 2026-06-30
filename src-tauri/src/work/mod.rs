@@ -135,7 +135,11 @@ impl WorkEngine {
     }
 
     /// Lists tasks, optionally filtered by status.  `limit` defaults to 200.
-    pub fn list_tasks(&self, status: Option<TaskStatus>, limit: Option<usize>) -> Result<Vec<WorkTask>> {
+    pub fn list_tasks(
+        &self,
+        status: Option<TaskStatus>,
+        limit: Option<usize>,
+    ) -> Result<Vec<WorkTask>> {
         let conn = self.sqlite.raw_connection();
         let conn = conn.lock();
         let lim = limit.unwrap_or(200).max(1) as i64;
@@ -158,7 +162,11 @@ impl WorkEngine {
     /// `completed_at` is set to now.
     pub fn set_status(&self, id: &str, status: TaskStatus) -> Result<WorkTask> {
         let now = Utc::now().timestamp();
-        let completed_at = if status == TaskStatus::Done { Some(now) } else { None };
+        let completed_at = if status == TaskStatus::Done {
+            Some(now)
+        } else {
+            None
+        };
         let conn = self.sqlite.raw_connection();
         let conn = conn.lock();
         let n = conn.execute(
@@ -197,9 +205,7 @@ impl WorkEngine {
             .ok_or_else(|| anyhow!("task not found: {id}"))?;
         let new_title = title.unwrap_or(current.title);
         let new_desc = description.unwrap_or(current.description);
-        let new_priority = priority
-            .map(|p| p.clamp(0, 3))
-            .unwrap_or(current.priority);
+        let new_priority = priority.map(|p| p.clamp(0, 3)).unwrap_or(current.priority);
         let new_due = due_at.unwrap_or(current.due_at);
         conn.execute(
             "UPDATE work_tasks SET title = ?1, description = ?2, priority = ?3, due_at = ?4, updated_at = ?5 WHERE id = ?6",
@@ -255,7 +261,9 @@ impl WorkEngine {
     /// was running.
     pub fn stop_timer(&self) -> Result<Option<WorkTask>> {
         let id = { self.active_timer.lock().clone() };
-        let Some(id) = id else { return Ok(None); };
+        let Some(id) = id else {
+            return Ok(None);
+        };
         // In v0.5 we just clear the active pointer.  The accumulator
         // is updated by `add_time` from the front-end (which knows
         // the elapsed wall-clock duration).
@@ -346,10 +354,7 @@ pub fn summarise_meeting(transcript: &str) -> MeetingMinutes {
             continue;
         }
         if line.starts_with('-') || line.starts_with('*') {
-            actions.push(
-                line.trim_start_matches(|c: char| c == '-' || c == '*' || c == ' ')
-                    .to_string(),
-            );
+            actions.push(line.trim_start_matches(['-', '*', ' ']).to_string());
         } else if decisions.len() < 5 {
             decisions.push(line.to_string());
         }

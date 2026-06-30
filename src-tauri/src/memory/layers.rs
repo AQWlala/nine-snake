@@ -83,15 +83,7 @@ pub fn policy_for(layer: MemoryLayer) -> LayerPolicy {
             true,
             1,
         ),
-        MemoryLayer::L3 => policy(
-            MemoryLayer::L3,
-            "Concrete facts.",
-            30,
-            true,
-            true,
-            true,
-            1,
-        ),
+        MemoryLayer::L3 => policy(MemoryLayer::L3, "Concrete facts.", 30, true, true, true, 1),
         MemoryLayer::L4 => policy(
             MemoryLayer::L4,
             "Distilled knowledge.",

@@ -3,8 +3,8 @@
 use tauri::State;
 use tracing::instrument;
 
-use crate::skills::types as skill_types;
 use crate::commands::error::CommandError;
+use crate::skills::types as skill_types;
 use crate::AppState;
 
 #[tauri::command]
@@ -35,7 +35,7 @@ pub async fn skill_use(
                 "blocked critical injection / credential leak in skill_use"
             );
             return Err(CommandError::validation("skill_use").with_details(
-                "输入包含潜在的安全风险（注入攻击或凭证泄露），已被拦截".to_string()
+                "输入包含潜在的安全风险（注入攻击或凭证泄露），已被拦截".to_string(),
             ));
         }
     }
@@ -95,20 +95,30 @@ pub async fn skill_import(
         "agentskills" => crate::skills::importer::SkillSource::AgentskillsIo,
         "clawhub" => crate::skills::importer::SkillSource::ClawHub,
         "teamskillshub" => crate::skills::importer::SkillSource::TeamSkillsHub,
-        other => return Err(CommandError::validation("skill_import").with_details(format!("unknown source: {other}"))),
+        other => {
+            return Err(CommandError::validation("skill_import")
+                .with_details(format!("unknown source: {other}")))
+        }
     };
-    let importer = crate::skills::importer::SkillImporter::new(
-        state.skills.store().clone(),
-    );
+    let importer = crate::skills::importer::SkillImporter::new(state.skills.store().clone());
     let result = match source {
-        crate::skills::importer::SkillSource::AgentskillsIo => importer.import_from_url(&identifier).await,
-        crate::skills::importer::SkillSource::ClawHub => importer.import_from_clawhub(&identifier).await,
-        crate::skills::importer::SkillSource::TeamSkillsHub => importer.import_from_teamskillshub(&identifier).await,
+        crate::skills::importer::SkillSource::AgentskillsIo => {
+            importer.import_from_url(&identifier).await
+        }
+        crate::skills::importer::SkillSource::ClawHub => {
+            importer.import_from_clawhub(&identifier).await
+        }
+        crate::skills::importer::SkillSource::TeamSkillsHub => {
+            importer.import_from_teamskillshub(&identifier).await
+        }
     };
     if result.success {
         Ok(result)
     } else {
-        Err(CommandError::internal("skill_import", &anyhow::anyhow!("import failed")))
+        Err(CommandError::internal(
+            "skill_import",
+            &anyhow::anyhow!("import failed"),
+        ))
     }
 }
 
@@ -123,7 +133,10 @@ pub async fn marketplace_search(
     state: State<'_, AppState>,
     query: crate::skills::marketplace::MarketplaceQuery,
 ) -> Result<crate::skills::marketplace::MarketplaceResponse, CommandError> {
-    state.marketplace.search(&query).map_err(|e| CommandError::internal("marketplace_search", &e))
+    state
+        .marketplace
+        .search(&query)
+        .map_err(|e| CommandError::internal("marketplace_search", &e))
 }
 
 /// Quick search — top 10 results for autocomplete.
@@ -138,7 +151,10 @@ pub async fn marketplace_quick_search(
         limit: 10,
         ..Default::default()
     };
-    state.marketplace.search(&q).map_err(|e| CommandError::internal("marketplace_quick_search", &e))
+    state
+        .marketplace
+        .search(&q)
+        .map_err(|e| CommandError::internal("marketplace_quick_search", &e))
 }
 
 /// One-click install from remote registry.
@@ -149,7 +165,9 @@ pub async fn marketplace_install(
     source: String,
     identifier: String,
 ) -> Result<crate::skills::marketplace::SkillEntry, CommandError> {
-    state.marketplace.install(&source, &identifier)
+    state
+        .marketplace
+        .install(&source, &identifier)
         .map_err(|e| CommandError::internal("marketplace_install", &e))
 }
 
@@ -168,7 +186,9 @@ pub async fn marketplace_check_updates(
 pub async fn marketplace_refresh(
     state: State<'_, AppState>,
 ) -> Result<crate::skills::marketplace::MarketplaceStats, CommandError> {
-    state.marketplace.refresh()
+    state
+        .marketplace
+        .refresh()
         .map_err(|e| CommandError::internal("marketplace_refresh", &e))
 }
 
@@ -197,7 +217,9 @@ pub async fn marketplace_generate_manifest(
     state: State<'_, AppState>,
     skill_id: String,
 ) -> Result<crate::skills::marketplace::PublishManifest, CommandError> {
-    state.marketplace.generate_manifest(&skill_id)
+    state
+        .marketplace
+        .generate_manifest(&skill_id)
         .map_err(|e| CommandError::internal("marketplace_generate_manifest", &e))
 }
 
@@ -213,7 +235,8 @@ pub async fn skill_audit_list(
 ) -> Result<Vec<crate::skills::audit::SkillAuditEntry>, CommandError> {
     let logger = state.skill_audit_logger.clone();
     tokio::task::spawn_blocking(move || {
-        logger.list(limit.unwrap_or(50))
+        logger
+            .list(limit.unwrap_or(50))
             .map_err(|e| CommandError::db("skill_audit_list", &e))
     })
     .await
@@ -229,7 +252,8 @@ pub async fn skill_audit_list_for_skill(
 ) -> Result<Vec<crate::skills::audit::SkillAuditEntry>, CommandError> {
     let logger = state.skill_audit_logger.clone();
     tokio::task::spawn_blocking(move || {
-        logger.list_for_skill(&skill_id, limit.unwrap_or(50))
+        logger
+            .list_for_skill(&skill_id, limit.unwrap_or(50))
             .map_err(|e| CommandError::db("skill_audit_list_for_skill", &e))
     })
     .await

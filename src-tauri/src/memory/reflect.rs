@@ -272,8 +272,15 @@ impl ReflectionEngine {
         let importance = (self.cfg.base_importance
             + 0.1 * (candidates.len() as f32 / self.cfg.max_memories as f32).min(1.0))
         .clamp(0.0, 1.0);
-        let trigger_kind = if used_fallback { "template_fallback" } else { "periodic" }.to_string();
-        let reflection = self.persist(&candidates, &content, &lessons, importance, trigger_kind).await?;
+        let trigger_kind = if used_fallback {
+            "template_fallback"
+        } else {
+            "periodic"
+        }
+        .to_string();
+        let reflection = self
+            .persist(&candidates, &content, &lessons, importance, trigger_kind)
+            .await?;
         // v0.3: distinguish a fresh insert from a dedup replay. The
         // persist() returns a `dedup_replay` trigger_kind for the
         // latter so we do not double-count it in the metric.
@@ -351,9 +358,10 @@ impl ReflectionEngine {
             "基于以下记忆片段，生成一条元认知反思（指出共性、规律、可改进之处）：\n\n{summaries}\n\n要求：100-300 字，第一人称，\"我意识到...\"开头。\n\n请在结尾以 JSON 形式列出 lessons: {{\"lessons\": [\"...\", \"...\"]}}"
         );
         let resp = llm
-            .chat(vec![ChatMessage::system(
-                "你是一个元认知助手。只输出反思正文 + 末尾的 JSON lessons。",
-            ), ChatMessage::user(prompt)])
+            .chat(vec![
+                ChatMessage::system("你是一个元认知助手。只输出反思正文 + 末尾的 JSON lessons。"),
+                ChatMessage::user(prompt),
+            ])
             .await
             .context("LLM chat failed during reflection")?;
         let (content, lessons) = split_lessons(&resp.message.content);
@@ -604,7 +612,12 @@ fn find_duplicate_reflection(
     for row in rows {
         let (rr, src_set) = row?;
         let existing: Vec<String> = src_set
-            .map(|s| s.split('|').filter(|x| !x.is_empty()).map(|x| x.to_string()).collect())
+            .map(|s| {
+                s.split('|')
+                    .filter(|x| !x.is_empty())
+                    .map(|x| x.to_string())
+                    .collect()
+            })
             .unwrap_or_default();
         if existing == sorted_sources {
             let sources = list_sources(conn, &rr.id)?;
@@ -698,7 +711,8 @@ fn strip_fences(raw: &str) -> String {
         after_opening[after_opening
             .find(':')
             .or_else(|| after_opening.find('：'))
-            .unwrap() + 1..]
+            .unwrap()
+            + 1..]
             .trim_start()
             .to_string()
     } else {
@@ -711,19 +725,27 @@ fn strip_fences(raw: &str) -> String {
 /// template that is suitable for tests and CI runs.
 fn template_summarise(memories: &[Memory]) -> (String, Vec<String>) {
     let n = memories.len();
-    let layers: BTreeSet<&'static str> =
-        memories.iter().map(|m| m.layer.as_str()).collect();
-    let types: BTreeSet<&'static str> =
-        memories.iter().map(|m| m.memory_type.as_str()).collect();
+    let layers: BTreeSet<&'static str> = memories.iter().map(|m| m.layer.as_str()).collect();
+    let types: BTreeSet<&'static str> = memories.iter().map(|m| m.memory_type.as_str()).collect();
     let top = memories
         .iter()
-        .max_by(|a, b| a.importance.partial_cmp(&b.importance).unwrap_or(std::cmp::Ordering::Equal))
+        .max_by(|a, b| {
+            a.importance
+                .partial_cmp(&b.importance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
         .map(|m| truncate_chars(&m.content, 80))
         .unwrap_or_default();
     let lessons = vec![
         format!("过去窗口内共 {n} 条高 importance 记忆"),
-        format!("涉及层级: {}", layers.iter().copied().collect::<Vec<_>>().join("/")),
-        format!("涉及类型: {}", types.iter().copied().collect::<Vec<_>>().join("/")),
+        format!(
+            "涉及层级: {}",
+            layers.iter().copied().collect::<Vec<_>>().join("/")
+        ),
+        format!(
+            "涉及类型: {}",
+            types.iter().copied().collect::<Vec<_>>().join("/")
+        ),
     ];
     let content = format!(
         "我意识到：最近 {n} 条高 importance 记忆集中在层级 {} 和类型 {} 上。最突出的一条是：「{top}」。我需要在后续回合中更系统地处理这类主题。",
@@ -753,14 +775,18 @@ fn row_to_memory_full(row: &rusqlite::Row<'_>) -> rusqlite::Result<Memory> {
     let source_s: String = row.get("source")?;
     let metadata_s: String = row.get("metadata")?;
     let pinned: i32 = row.get("pinned")?;
-    let memory_type = MemoryType::from_str(&memory_type_s)
-        .map_err(|e| rusqlite::Error::InvalidColumnType(0, e.to_string(), rusqlite::types::Type::Text))?;
-    let layer = MemoryLayer::from_str(&layer_s)
-        .map_err(|e| rusqlite::Error::InvalidColumnType(0, e.to_string(), rusqlite::types::Type::Text))?;
-    let source = SourceKind::from_str(&source_s)
-        .map_err(|e| rusqlite::Error::InvalidColumnType(0, e.to_string(), rusqlite::types::Type::Text))?;
-    let metadata: serde_json::Value = serde_json::from_str(&metadata_s)
-        .map_err(|e| rusqlite::Error::InvalidColumnType(0, e.to_string(), rusqlite::types::Type::Text))?;
+    let memory_type = MemoryType::from_str(&memory_type_s).map_err(|e| {
+        rusqlite::Error::InvalidColumnType(0, e.to_string(), rusqlite::types::Type::Text)
+    })?;
+    let layer = MemoryLayer::from_str(&layer_s).map_err(|e| {
+        rusqlite::Error::InvalidColumnType(0, e.to_string(), rusqlite::types::Type::Text)
+    })?;
+    let source = SourceKind::from_str(&source_s).map_err(|e| {
+        rusqlite::Error::InvalidColumnType(0, e.to_string(), rusqlite::types::Type::Text)
+    })?;
+    let metadata: serde_json::Value = serde_json::from_str(&metadata_s).map_err(|e| {
+        rusqlite::Error::InvalidColumnType(0, e.to_string(), rusqlite::types::Type::Text)
+    })?;
     Ok(Memory {
         id: row.get("id")?,
         memory_type,
@@ -819,7 +845,12 @@ mod tests {
     }
 
     fn high_importance_mem(id: &str, content: &str) -> Memory {
-        let mut m = Memory::new(MemoryType::Semantic, MemoryLayer::L3, content, SourceKind::UserInput);
+        let mut m = Memory::new(
+            MemoryType::Semantic,
+            MemoryLayer::L3,
+            content,
+            SourceKind::UserInput,
+        );
         m.id = id.to_string();
         m.importance = 0.8;
         m
@@ -837,9 +868,15 @@ mod tests {
     #[tokio::test]
     async fn reflect_now_produces_template_reflection_with_fallback() {
         let (p, store) = temp_db();
-        store.insert_guarded(&high_importance_mem("a", "Tauri 启动失败，端口占用")).unwrap();
-        store.insert_guarded(&high_importance_mem("b", "Tauri 启动失败，权限问题")).unwrap();
-        store.insert_guarded(&high_importance_mem("c", "数据库连接超时")).unwrap();
+        store
+            .insert_guarded(&high_importance_mem("a", "Tauri 启动失败，端口占用"))
+            .unwrap();
+        store
+            .insert_guarded(&high_importance_mem("b", "Tauri 启动失败，权限问题"))
+            .unwrap();
+        store
+            .insert_guarded(&high_importance_mem("c", "数据库连接超时"))
+            .unwrap();
 
         let engine = ReflectionEngine::new(store, None, ReflectConfig::default());
         let r = engine.reflect_now().await.unwrap();
@@ -848,7 +885,11 @@ mod tests {
         assert_eq!(refl.layer, MemoryLayer::L5);
         assert_eq!(refl.memory_type, MemoryType::Metacognitive);
         assert_eq!(refl.source_memories.len(), 3);
-        assert!(refl.content.starts_with("我意识到"), "got: {}", refl.content);
+        assert!(
+            refl.content.starts_with("我意识到"),
+            "got: {}",
+            refl.content
+        );
         assert!(!refl.lessons.is_empty());
         cleanup(&p);
     }
@@ -856,9 +897,14 @@ mod tests {
     #[test]
     fn list_recent_returns_persisted_reflection() {
         let (p, store) = temp_db();
-        store.insert_guarded(&high_importance_mem("x", "something")).unwrap();
+        store
+            .insert_guarded(&high_importance_mem("x", "something"))
+            .unwrap();
         let engine = ReflectionEngine::new(store.clone(), None, ReflectConfig::default());
-        let r = tokio::runtime::Runtime::new().unwrap().block_on(engine.reflect_now()).unwrap();
+        let r = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(engine.reflect_now())
+            .unwrap();
         assert_eq!(r.len(), 1);
         let listed = engine.list_recent(10).unwrap();
         assert_eq!(listed.len(), 1);
@@ -898,12 +944,20 @@ mod tests {
     #[test]
     fn engine_single_flight_drops_concurrent_calls() {
         let (p, store) = temp_db();
-        store.insert_guarded(&high_importance_mem("a", "x")).unwrap();
+        store
+            .insert_guarded(&high_importance_mem("a", "x"))
+            .unwrap();
         let engine = Arc::new(ReflectionEngine::new(store, None, ReflectConfig::default()));
         let e1 = engine.clone();
         let e2 = engine.clone();
-        let r1 = tokio::runtime::Runtime::new().unwrap().block_on(async move { e1.reflect_now().await }).unwrap();
-        let r2 = tokio::runtime::Runtime::new().unwrap().block_on(async move { e2.reflect_now().await }).unwrap();
+        let r1 = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(async move { e1.reflect_now().await })
+            .unwrap();
+        let r2 = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(async move { e2.reflect_now().await })
+            .unwrap();
         // At most one of the two calls is allowed to produce a row;
         // the other is short-circuited.
         assert!(r1.len() + r2.len() <= 1);
@@ -913,8 +967,12 @@ mod tests {
     #[test]
     fn persist_writes_join_rows() {
         let (p, store) = temp_db();
-        store.insert_guarded(&high_importance_mem("m1", "a")).unwrap();
-        store.insert_guarded(&high_importance_mem("m2", "b")).unwrap();
+        store
+            .insert_guarded(&high_importance_mem("m1", "a"))
+            .unwrap();
+        store
+            .insert_guarded(&high_importance_mem("m2", "b"))
+            .unwrap();
         let engine = ReflectionEngine::new(store.clone(), None, ReflectConfig::default());
         let r = tokio::runtime::Runtime::new()
             .unwrap()
@@ -1000,8 +1058,12 @@ mod tests {
     #[test]
     fn reflect_now_dedups_within_same_day() {
         let (p, store) = temp_db();
-        store.insert_guarded(&high_importance_mem("a", "alpha")).unwrap();
-        store.insert_guarded(&high_importance_mem("b", "beta")).unwrap();
+        store
+            .insert_guarded(&high_importance_mem("a", "alpha"))
+            .unwrap();
+        store
+            .insert_guarded(&high_importance_mem("b", "beta"))
+            .unwrap();
 
         let engine = ReflectionEngine::new(store.clone(), None, ReflectConfig::default());
         let rt = tokio::runtime::Runtime::new().unwrap();

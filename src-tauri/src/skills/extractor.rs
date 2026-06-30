@@ -144,8 +144,16 @@ pub struct SkillExtractor {
 }
 
 impl SkillExtractor {
-    pub fn new(llm: Arc<LlmGateway>, store: Arc<SkillStore>, archive_dir: impl Into<String>) -> Self {
-        Self { llm, store, archive_dir: archive_dir.into() }
+    pub fn new(
+        llm: Arc<LlmGateway>,
+        store: Arc<SkillStore>,
+        archive_dir: impl Into<String>,
+    ) -> Self {
+        Self {
+            llm,
+            store,
+            archive_dir: archive_dir.into(),
+        }
     }
 
     /// Attempt to extract a reusable skill from a completed swarm task.
@@ -214,7 +222,12 @@ impl SkillExtractor {
                     .strip_prefix("```json")
                     .and_then(|s| s.strip_suffix("```"))
                     .map(|s| s.trim())
-                    .unwrap_or_else(|| body.strip_prefix("```").and_then(|s| s.strip_suffix("```")).map(|s| s.trim()).unwrap_or(&body));
+                    .unwrap_or_else(|| {
+                        body.strip_prefix("```")
+                            .and_then(|s| s.strip_suffix("```"))
+                            .map(|s| s.trim())
+                            .unwrap_or(&body)
+                    });
 
                 match serde_json::from_str::<ExtractionResult>(json_str) {
                     Err(e) => {
@@ -432,7 +445,9 @@ mod tests {
             archive_dir: dir.to_string_lossy().to_string(),
         };
 
-        extractor.write_skill_md("test-id", &extracted, 1000).unwrap();
+        extractor
+            .write_skill_md("test-id", &extracted, 1000)
+            .unwrap();
 
         let md_path = dir.join("test-skill").join("SKILL.md");
         let content = std::fs::read_to_string(&md_path).unwrap();

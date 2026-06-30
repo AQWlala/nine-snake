@@ -1,4 +1,4 @@
-﻿//! Swarm integration test: pipeline validation + output contract.
+//! Swarm integration test: pipeline validation + output contract.
 //!
 //! Validates the v2.0 swarm: single-agent and empty-pipeline tasks
 //! execute gracefully (they no longer return errors — the orchestrator
@@ -17,7 +17,7 @@ async fn swarm_single_agent_by_kind_executes() {
     let orch = SwarmOrchestrator::new_without_memory(gw);
     let mut task = SwarmTask::new("hi");
     task.agents = vec!["Coder".to_string()];
-    
+
     // v2.0: single-agent by kind dispatches 1 agent (mock LLM → fails).
     let res = orch.execute(task).await;
     assert!(res.is_ok(), "single-agent by kind should execute");
@@ -32,7 +32,7 @@ async fn swarm_empty_agents_falls_back_to_default_pool() {
     let orch = SwarmOrchestrator::new_without_memory(gw);
     let mut task = SwarmTask::new("hi");
     task.agents = vec![];
-    
+
     // v2.0: empty agents falls back to default agent_count (3).
     let res = orch.execute(task).await;
     assert!(res.is_ok(), "empty agents should fall back to default pool");

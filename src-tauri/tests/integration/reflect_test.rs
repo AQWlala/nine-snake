@@ -12,7 +12,12 @@ use nine_snake_lib::memory::reflect::{ReflectConfig, ReflectionEngine};
 use nine_snake_lib::memory::types::{Memory, MemoryLayer, MemoryType, SourceKind};
 
 fn high(id: &str, content: &str) -> Memory {
-    let mut m = Memory::new(MemoryType::Semantic, MemoryLayer::L3, content, SourceKind::UserInput);
+    let mut m = Memory::new(
+        MemoryType::Semantic,
+        MemoryLayer::L3,
+        content,
+        SourceKind::UserInput,
+    );
     m.id = id.to_string();
     m.importance = 0.8;
     m
@@ -41,7 +46,11 @@ async fn reflection_round_trip_through_database() {
     let conn = tmp.store.raw_connection();
     let conn = conn.lock();
     let n: i64 = conn
-        .query_row("SELECT COUNT(*) FROM reflections WHERE id = ?1", rusqlite::params![r.id], |row| row.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM reflections WHERE id = ?1",
+            rusqlite::params![r.id],
+            |row| row.get(0),
+        )
         .unwrap();
     assert_eq!(n, 1);
     let joins: i64 = conn

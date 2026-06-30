@@ -19,7 +19,11 @@ pub enum ActivationCondition {
 }
 
 impl ActivationCondition {
-    pub fn matches(&self, input: &str, context: &std::collections::HashMap<String, String>) -> bool {
+    pub fn matches(
+        &self,
+        input: &str,
+        context: &std::collections::HashMap<String, String>,
+    ) -> bool {
         match self {
             ActivationCondition::Always => true,
             ActivationCondition::Keyword { pattern } => {

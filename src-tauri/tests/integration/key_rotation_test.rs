@@ -33,8 +33,7 @@ const COMPROMISED_PUBKEYS: &[&str] = &[
 fn read_pubkey_from_tauri_conf() -> String {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json");
     let body = fs::read_to_string(&path).expect("read tauri.conf.json");
-    let conf: serde_json::Value =
-        serde_json::from_str(&body).expect("parse tauri.conf.json");
+    let conf: serde_json::Value = serde_json::from_str(&body).expect("parse tauri.conf.json");
     conf.pointer("/plugins/updater/pubkey")
         .and_then(|v| v.as_str())
         .expect("tauri.conf.json::plugins.updater.pubkey missing or not a string")
@@ -146,10 +145,7 @@ fn no_private_key_files_in_keys_dir() {
     // This test fails the build if either file reappears, even
     // before any human review.
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    for forbidden in [
-        "updater_private.b64",
-        "updater_private_password.b64",
-    ] {
+    for forbidden in ["updater_private.b64", "updater_private_password.b64"] {
         let p = manifest.join("..").join("keys").join(forbidden);
         if p.exists() {
             let _body = fs::read_to_string(&p).unwrap_or_default();

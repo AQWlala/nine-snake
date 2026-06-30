@@ -24,5 +24,5 @@ pub use agents::{canonical_team, CoderAgent, ReviewerAgent, WriterAgent};
 pub use bus::{AgentBus, BusMessage, BusMessageType};
 pub use composer::{SkillComposer, SkillContext, SkillMatch};
 pub use context::{ContextEntry, TeamContext};
-pub use negotiator::{Negotiator, NegotiationMethod, NegotiationResult};
+pub use negotiator::{NegotiationMethod, NegotiationResult, Negotiator};
 pub use orchestrator::{AgentDescriptor, OrchestrationReport, SwarmOrchestrator, SwarmTask};

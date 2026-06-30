@@ -16,13 +16,12 @@ pub async fn export_memories(
     let exporter = crate::memory::export::DataExporter::new((*state.sqlite).clone());
     let p = std::path::PathBuf::from(&path);
     match format.as_str() {
-        "jsonld" | "json-ld" => {
-            exporter.export_jsonld(&p).await
-                .map_err(|e| CommandError::internal("export_memories", &e))
-        }
-        _ => Err(CommandError::validation("export_memories").with_details(
-            format!("unsupported format: {format}"),
-        )),
+        "jsonld" | "json-ld" => exporter
+            .export_jsonld(&p)
+            .await
+            .map_err(|e| CommandError::internal("export_memories", &e)),
+        _ => Err(CommandError::validation("export_memories")
+            .with_details(format!("unsupported format: {format}"))),
     }
 }
 
@@ -34,6 +33,8 @@ pub async fn import_memories(
 ) -> Result<crate::memory::export::ImportResult, CommandError> {
     let exporter = crate::memory::export::DataExporter::new((*state.sqlite).clone());
     let p = std::path::PathBuf::from(&path);
-    exporter.import_jsonld(&p).await
+    exporter
+        .import_jsonld(&p)
+        .await
         .map_err(|e| CommandError::internal("import_memories", &e))
 }

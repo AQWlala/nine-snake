@@ -6,10 +6,10 @@
 //! enumerate available tools for inclusion in the LLM system prompt.
 
 pub mod shell_tool;
-use std::collections::HashMap;
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Input to a tool call.
@@ -59,7 +59,8 @@ impl ToolRegistry {
 
     /// Lists all registered tools as `(name, description, schema)` tuples.
     pub fn list_all(&self) -> Vec<(String, String, serde_json::Value)> {
-        self.tools.read()
+        self.tools
+            .read()
             .iter()
             .map(|(k, t)| (k.clone(), t.description().to_string(), t.schema()))
             .collect()
@@ -67,7 +68,8 @@ impl ToolRegistry {
 
     /// Invokes a tool by name with the given arguments.
     pub fn invoke(&self, input: ToolInput) -> Result<ToolOutput> {
-        let tool = self.get(&input.tool_name)
+        let tool = self
+            .get(&input.tool_name)
             .ok_or_else(|| anyhow::anyhow!("unknown tool: {}", input.tool_name))?;
         tool.call(input.arguments)
     }
@@ -93,13 +95,21 @@ mod tests {
 
     struct DummyTool;
     impl Tool for DummyTool {
-        fn name(&self) -> &str { "dummy" }
-        fn description(&self) -> &str { "A dummy tool for testing" }
+        fn name(&self) -> &str {
+            "dummy"
+        }
+        fn description(&self) -> &str {
+            "A dummy tool for testing"
+        }
         fn schema(&self) -> serde_json::Value {
             serde_json::json!({ "type": "object" })
         }
         fn call(&self, _args: serde_json::Value) -> Result<ToolOutput> {
-            Ok(ToolOutput { success: true, result: "ok".to_string(), error: None })
+            Ok(ToolOutput {
+                success: true,
+                result: "ok".to_string(),
+                error: None,
+            })
         }
     }
 
@@ -124,10 +134,12 @@ mod tests {
     fn registry_invoke_success() {
         let reg = ToolRegistry::new();
         reg.register(Arc::new(DummyTool));
-        let out = reg.invoke(ToolInput {
-            tool_name: "dummy".to_string(),
-            arguments: serde_json::json!({}),
-        }).unwrap();
+        let out = reg
+            .invoke(ToolInput {
+                tool_name: "dummy".to_string(),
+                arguments: serde_json::json!({}),
+            })
+            .unwrap();
         assert!(out.success);
         assert_eq!(out.result, "ok");
     }
@@ -135,10 +147,12 @@ mod tests {
     #[test]
     fn registry_invoke_unknown_tool() {
         let reg = ToolRegistry::new();
-        let err = reg.invoke(ToolInput {
-            tool_name: "unknown".to_string(),
-            arguments: serde_json::json!({}),
-        }).unwrap_err();
+        let err = reg
+            .invoke(ToolInput {
+                tool_name: "unknown".to_string(),
+                arguments: serde_json::json!({}),
+            })
+            .unwrap_err();
         assert!(err.to_string().contains("unknown tool"));
     }
 }

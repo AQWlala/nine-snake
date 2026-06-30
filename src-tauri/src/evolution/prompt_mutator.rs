@@ -89,7 +89,11 @@ impl PromptMutator for LlmPromptMutator {
                 "- status: {}, confidence: {:.2}, error: {:?}",
                 o.status.as_str(),
                 o.confidence,
-                if o.error.is_empty() { None } else { Some(&o.error) },
+                if o.error.is_empty() {
+                    None
+                } else {
+                    Some(&o.error)
+                },
             ));
         }
         let outcomes_text = summary_lines.join("\n");
@@ -153,7 +157,10 @@ impl SqlitePromptSelfMutator {
         current_prompt: &str,
         reason: Option<&str>,
     ) -> Result<String> {
-        let id = format!("snap_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
+        let id = format!(
+            "snap_{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        );
         let now = chrono::Utc::now().timestamp();
         let g = self.conn.lock();
         g.execute(
@@ -210,11 +217,7 @@ impl SqlitePromptSelfMutator {
     /// (The actual write of `new_prompt` to the Agent is delegated to
     /// a separate `update_agent_prompt` call — the mutator is
     /// intentionally pure.)
-    pub fn run_once(
-        &self,
-        target: &str,
-        current_prompt: &str,
-    ) -> Result<Option<MutationResult>> {
+    pub fn run_once(&self, target: &str, current_prompt: &str) -> Result<Option<MutationResult>> {
         let recent = self.ledger.by_source(
             OutcomeSource::Swarm, // swarm agents share these; chat ones too
             target,
@@ -240,7 +243,10 @@ mod tests {
     use crate::evolution::outcome::InMemoryOutcomeLedger;
     use crate::evolution::outcome::OutcomeStatus;
 
-    fn setup() -> (Arc<parking_lot::Mutex<Connection>>, Arc<InMemoryOutcomeLedger>) {
+    fn setup() -> (
+        Arc<parking_lot::Mutex<Connection>>,
+        Arc<InMemoryOutcomeLedger>,
+    ) {
         // in-memory sqlite so we can test snapshot/restore end-to-end
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute_batch(
@@ -263,14 +269,14 @@ mod tests {
     fn snapshot_inserts_and_rollback_marks_restored() {
         let (m, ledger) = setup();
         let cfg = EvolutionConfig::default();
-        let mutator = SqlitePromptSelfMutator::new(
-            m.clone(),
-            ledger,
-            Arc::new(NoopPromptMutator),
-            cfg,
-        );
-        let s1 = mutator.snapshot("coder", "hello v1", Some("first")).unwrap();
-        let _s2 = mutator.snapshot("coder", "hello v2", Some("second")).unwrap();
+        let mutator =
+            SqlitePromptSelfMutator::new(m.clone(), ledger, Arc::new(NoopPromptMutator), cfg);
+        let s1 = mutator
+            .snapshot("coder", "hello v1", Some("first"))
+            .unwrap();
+        let _s2 = mutator
+            .snapshot("coder", "hello v2", Some("second"))
+            .unwrap();
         let restored = mutator.rollback_to(&s1).unwrap();
         assert_eq!(restored, Some("coder".to_string()));
     }
@@ -280,7 +286,9 @@ mod tests {
         let (_m, ledger) = setup();
         let cfg = EvolutionConfig::default();
         let mutator = SqlitePromptSelfMutator::new(
-            Arc::new(parking_lot::Mutex::new(rusqlite::Connection::open_in_memory().unwrap())),
+            Arc::new(parking_lot::Mutex::new(
+                rusqlite::Connection::open_in_memory().unwrap(),
+            )),
             ledger.clone(),
             Arc::new(NoopPromptMutator),
             cfg,
@@ -309,7 +317,9 @@ mod tests {
         let (_m, ledger) = setup();
         let cfg = EvolutionConfig::default();
         let mutator = SqlitePromptSelfMutator::new(
-            Arc::new(parking_lot::Mutex::new(rusqlite::Connection::open_in_memory().unwrap())),
+            Arc::new(parking_lot::Mutex::new(
+                rusqlite::Connection::open_in_memory().unwrap(),
+            )),
             ledger.clone(),
             Arc::new(NoopPromptMutator),
             cfg,
@@ -337,12 +347,7 @@ mod tests {
     fn run_once_no_op_when_below_window() {
         let (m, ledger) = setup();
         let cfg = EvolutionConfig::default();
-        let mutator = SqlitePromptSelfMutator::new(
-            m,
-            ledger,
-            Arc::new(NoopPromptMutator),
-            cfg,
-        );
+        let mutator = SqlitePromptSelfMutator::new(m, ledger, Arc::new(NoopPromptMutator), cfg);
         // prompt_mutator_window (default 30) > 0 outcomes recorded → returns None.
         let got = mutator.run_once("coder", "hello v1");
         assert!(got.is_ok());

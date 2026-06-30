@@ -76,7 +76,8 @@ impl SqliteStore {
 
         // Apply the bundled migration. We embed the SQL at compile time.
         const SCHEMA: &str = include_str!("../../migrations/001_initial.sql");
-        conn.execute_batch(SCHEMA).context("applying initial migration")?;
+        conn.execute_batch(SCHEMA)
+            .context("applying initial migration")?;
 
         info!(target: "nine_snake.memory", path = %path.display(), "sqlite store ready");
         Ok(Self {
@@ -135,7 +136,8 @@ impl SqliteStore {
                 m.pinned as i32,
                 m.archived as i32,
             ],
-        ).map_err(|e| anyhow!("sqlite insert_guarded error: {e}"))?;
+        )
+        .map_err(|e| anyhow!("sqlite insert_guarded error: {e}"))?;
         debug!(target: "nine_snake.memory", id = %m.id, layer = %m.layer, "inserted memory (guarded)");
         Ok(())
     }
@@ -145,8 +147,9 @@ impl SqliteStore {
     pub fn update_guarded(&self, m: &Memory) -> Result<()> {
         let _g = self.compression_lock.lock();
         let conn = self.conn.lock();
-        let affected = conn.execute(
-            "UPDATE memories SET
+        let affected = conn
+            .execute(
+                "UPDATE memories SET
                 memory_type = ?2,
                 layer = ?3,
                 content = ?4,
@@ -163,25 +166,26 @@ impl SqliteStore {
                 compression_gen = ?15,
                 pinned = ?16
              WHERE id = ?1",
-            params![
-                m.id,
-                m.memory_type.as_str(),
-                m.layer.as_str(),
-                m.content,
-                m.summary.s50,
-                m.summary.s150,
-                m.summary.s500,
-                m.summary.s2000,
-                m.importance,
-                m.access_count,
-                m.last_access,
-                m.source.as_str(),
-                m.metadata.to_string(),
-                m.compressed_from,
-                m.compression_gen,
-                m.pinned as i32,
-            ],
-        ).map_err(|e| anyhow!("sqlite update_guarded error: {e}"))?;
+                params![
+                    m.id,
+                    m.memory_type.as_str(),
+                    m.layer.as_str(),
+                    m.content,
+                    m.summary.s50,
+                    m.summary.s150,
+                    m.summary.s500,
+                    m.summary.s2000,
+                    m.importance,
+                    m.access_count,
+                    m.last_access,
+                    m.source.as_str(),
+                    m.metadata.to_string(),
+                    m.compressed_from,
+                    m.compression_gen,
+                    m.pinned as i32,
+                ],
+            )
+            .map_err(|e| anyhow!("sqlite update_guarded error: {e}"))?;
         if affected == 0 {
             return Err(anyhow!("memory not found"));
         }
@@ -264,9 +268,12 @@ impl SqliteStore {
                     m_pinned,
                     m_archived,
                 ],
-            ).map_err(|e| anyhow!("sqlite insert error: {e}"))?;
+            )
+            .map_err(|e| anyhow!("sqlite insert error: {e}"))?;
             Ok::<(), anyhow::Error>(())
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))??;
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))??;
         debug!(target: "nine_snake.memory", id = %m.id, layer = %m.layer, "inserted memory");
         Ok(())
     }
@@ -295,8 +302,9 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let affected = conn.execute(
-                "UPDATE memories SET
+            let affected = conn
+                .execute(
+                    "UPDATE memories SET
                     memory_type = ?2,
                     layer = ?3,
                     content = ?4,
@@ -313,30 +321,33 @@ impl SqliteStore {
                     compression_gen = ?15,
                     pinned = ?16
                  WHERE id = ?1",
-                params![
-                    m_id,
-                    m_type,
-                    m_layer,
-                    m_content,
-                    m_s50,
-                    m_s150,
-                    m_s500,
-                    m_s2000,
-                    m_importance,
-                    m_access_count,
-                    m_last_access,
-                    m_source,
-                    m_metadata,
-                    m_compressed_from,
-                    m_compression_gen,
-                    m_pinned,
-                ],
-            ).map_err(|e| anyhow!("sqlite update error: {e}"))?;
+                    params![
+                        m_id,
+                        m_type,
+                        m_layer,
+                        m_content,
+                        m_s50,
+                        m_s150,
+                        m_s500,
+                        m_s2000,
+                        m_importance,
+                        m_access_count,
+                        m_last_access,
+                        m_source,
+                        m_metadata,
+                        m_compressed_from,
+                        m_compression_gen,
+                        m_pinned,
+                    ],
+                )
+                .map_err(|e| anyhow!("sqlite update error: {e}"))?;
             if affected == 0 {
                 return Err(anyhow!("memory not found"));
             }
             Ok::<(), anyhow::Error>(())
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))??;
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))??;
         Ok(())
     }
 
@@ -365,7 +376,9 @@ impl SqliteStore {
                 .optional()
                 .map_err(|e| anyhow!("sqlite get error: {e}"))?;
             Ok(row)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Fetches many memories in a single `WHERE id IN (...)` query.
@@ -395,16 +408,22 @@ impl SqliteStore {
                 "SELECT {MEMORY_COLUMNS} FROM memories WHERE id IN ({placeholders}) \
                  AND compressed_from IS NULL"
             );
-            let mut stmt = conn.prepare(&sql).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
-            let params_vec: Vec<&dyn rusqlite::ToSql> =
-                ids_owned.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+            let mut stmt = conn
+                .prepare(&sql)
+                .map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
+            let params_vec: Vec<&dyn rusqlite::ToSql> = ids_owned
+                .iter()
+                .map(|s| s as &dyn rusqlite::ToSql)
+                .collect();
             let rows = stmt
                 .query_map(params_vec.as_slice(), row_to_memory)
                 .map_err(|e| anyhow!("sqlite query error: {e}"))?
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("sqlite row error: {e}"))?;
             Ok(rows)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Marks a memory row as "compressed from this id" by setting
@@ -420,15 +439,19 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let n = conn.execute(
-                "UPDATE memories SET compressed_from = ?2 WHERE id = ?1",
-                params![src_owned, sum_owned],
-            ).map_err(|e| anyhow!("sqlite update_compressed_from error: {e}"))?;
+            let n = conn
+                .execute(
+                    "UPDATE memories SET compressed_from = ?2 WHERE id = ?1",
+                    params![src_owned, sum_owned],
+                )
+                .map_err(|e| anyhow!("sqlite update_compressed_from error: {e}"))?;
             if n == 0 {
                 return Err(anyhow!("memory not found for compress"));
             }
             Ok::<(), anyhow::Error>(())
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Deletes a memory by id. The black-hole engine never calls this;
@@ -440,12 +463,13 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let n = conn.execute(
-                "DELETE FROM memories WHERE id = ?1",
-                params![id_owned],
-            ).map_err(|e| anyhow!("sqlite delete error: {e}"))?;
+            let n = conn
+                .execute("DELETE FROM memories WHERE id = ?1", params![id_owned])
+                .map_err(|e| anyhow!("sqlite delete error: {e}"))?;
             Ok(n > 0)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Lists the most recent memories (newest first), limited to `limit`.
@@ -457,17 +481,21 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let mut stmt = conn.prepare(
-                sel_mem!("memories WHERE compressed_from IS NULL \
-                 ORDER BY created_at DESC LIMIT ?1"),
-            ).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
+            let mut stmt = conn
+                .prepare(sel_mem!(
+                    "memories WHERE compressed_from IS NULL \
+                 ORDER BY created_at DESC LIMIT ?1"
+                ))
+                .map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
             let rows = stmt
                 .query_map(params![limit as i64], row_to_memory)
                 .map_err(|e| anyhow!("sqlite query error: {e}"))?
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("sqlite row error: {e}"))?;
             Ok(rows)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// v0.3: update a memory's `importance` in-place. Returns the
@@ -480,18 +508,23 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let n = conn.execute(
-                "UPDATE memories SET importance = ?2 WHERE id = ?1",
-                params![id_owned, importance],
-            ).map_err(|e| anyhow!("sqlite update_importance error: {e}"))?;
+            let n = conn
+                .execute(
+                    "UPDATE memories SET importance = ?2 WHERE id = ?1",
+                    params![id_owned, importance],
+                )
+                .map_err(|e| anyhow!("sqlite update_importance error: {e}"))?;
             if n == 0 {
                 return Err(anyhow!("memory not found"));
             }
             Ok::<(), anyhow::Error>(())
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))??;
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))??;
 
         // Re-fetch the updated row (this is a second async call but importance updates are rare)
-        self.get(id).await?
+        self.get(id)
+            .await?
             .ok_or_else(|| anyhow!("memory {id} disappeared after update"))
     }
 
@@ -507,11 +540,13 @@ impl SqliteStore {
             let mut stmt = conn.prepare(
                 "SELECT layer, COUNT(*) FROM memories WHERE compressed_from IS NULL GROUP BY layer",
             ).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
-            let rows = stmt.query_map([], |r| {
-                let layer_s: String = r.get(0)?;
-                let n: i64 = r.get(1)?;
-                Ok((layer_s, n as u64))
-            }).map_err(|e| anyhow!("sqlite query error: {e}"))?;
+            let rows = stmt
+                .query_map([], |r| {
+                    let layer_s: String = r.get(0)?;
+                    let n: i64 = r.get(1)?;
+                    Ok((layer_s, n as u64))
+                })
+                .map_err(|e| anyhow!("sqlite query error: {e}"))?;
             let mut out = std::collections::HashMap::new();
             for row in rows {
                 let (layer_s, n) = row.map_err(|e| anyhow!("sqlite row error: {e}"))?;
@@ -520,7 +555,9 @@ impl SqliteStore {
                 }
             }
             Ok(out)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Lists memories within a given layer, newest first. Excludes rows
@@ -532,18 +569,22 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let mut stmt = conn.prepare(
-                sel_mem!("memories WHERE layer = ?1 \
+            let mut stmt = conn
+                .prepare(sel_mem!(
+                    "memories WHERE layer = ?1 \
                  AND compressed_from IS NULL \
-                 ORDER BY created_at DESC LIMIT ?2"),
-            ).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
+                 ORDER BY created_at DESC LIMIT ?2"
+                ))
+                .map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
             let rows = stmt
                 .query_map(params![layer_str, limit as i64], row_to_memory)
                 .map_err(|e| anyhow!("sqlite query error: {e}"))?
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("sqlite row error: {e}"))?;
             Ok(rows)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Returns memories older than `now - threshold_secs` whose
@@ -562,15 +603,17 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let mut stmt = conn.prepare(
-                sel_mem!("memories
+            let mut stmt = conn
+                .prepare(sel_mem!(
+                    "memories
                  WHERE pinned = 0
                    AND compressed_from IS NULL
                    AND importance <= ?1
                    AND last_access <= ?2
                  ORDER BY last_access ASC
-                 LIMIT ?3"),
-            ).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
+                 LIMIT ?3"
+                ))
+                .map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
             let rows = stmt
                 .query_map(
                     params![importance_ceiling, cutoff, limit as i64],
@@ -580,7 +623,9 @@ impl SqliteStore {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("sqlite row error: {e}"))?;
             Ok(rows)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Inserts a graph edge between two memories.
@@ -610,9 +655,12 @@ impl SqliteStore {
                     rel_created,
                     rel_evidence,
                 ],
-            ).map_err(|e| anyhow!("sqlite add_relation error: {e}"))?;
+            )
+            .map_err(|e| anyhow!("sqlite add_relation error: {e}"))?;
             Ok::<(), anyhow::Error>(())
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     pub fn insert_relation(&self, rel: &MemoryRelation) -> Result<()> {
@@ -630,7 +678,8 @@ impl SqliteStore {
                 rel.created_at,
                 rel.evidence,
             ],
-        ).map_err(|e| anyhow!("sqlite insert_relation error: {e}"))?;
+        )
+        .map_err(|e| anyhow!("sqlite insert_relation error: {e}"))?;
         Ok(())
     }
 
@@ -644,10 +693,12 @@ impl SqliteStore {
 
     pub fn get_relations(&self, memory_id: &str) -> Result<Vec<MemoryRelation>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare(
-            "SELECT id, src_id, dst_id, relation, weight, created_at, evidence
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, src_id, dst_id, relation, weight, created_at, evidence
              FROM memory_relations WHERE src_id = ?1 OR dst_id = ?1",
-        ).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
+            )
+            .map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
         let id_owned = memory_id.to_string();
         let rows = stmt
             .query_map(params![id_owned], |row| {
@@ -670,10 +721,12 @@ impl SqliteStore {
 
     pub fn list_all_relations(&self) -> Result<Vec<MemoryRelation>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare(
-            "SELECT id, src_id, dst_id, relation, weight, created_at, evidence
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, src_id, dst_id, relation, weight, created_at, evidence
              FROM memory_relations",
-        ).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
+            )
+            .map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
         let rows = stmt
             .query_map([], |row| {
                 Ok(MemoryRelation {
@@ -701,10 +754,12 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let mut stmt = conn.prepare(
-                "SELECT id, src_id, dst_id, relation, weight, created_at, evidence
+            let mut stmt = conn
+                .prepare(
+                    "SELECT id, src_id, dst_id, relation, weight, created_at, evidence
                  FROM memory_relations WHERE src_id = ?1",
-            ).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
+                )
+                .map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
             let rows = stmt
                 .query_map(params![src_owned], |row| {
                     Ok(MemoryRelation {
@@ -722,7 +777,9 @@ impl SqliteStore {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("sqlite row error: {e}"))?;
             Ok(rows)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Records a `memory_commits` row. Used as an append-only audit log.
@@ -756,19 +813,13 @@ impl SqliteStore {
                 "INSERT INTO memory_commits
                     (id, parent_id, action, target_id, payload, author, message, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![
-                    cid,
-                    pid,
-                    act,
-                    tid,
-                    pay,
-                    auth,
-                    msg,
-                    now
-                ],
-            ).map_err(|e| anyhow!("sqlite log_commit error: {e}"))?;
+                params![cid, pid, act, tid, pay, auth, msg, now],
+            )
+            .map_err(|e| anyhow!("sqlite log_commit error: {e}"))?;
             Ok::<(), anyhow::Error>(())
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Returns the total number of stored memories.
@@ -778,13 +829,13 @@ impl SqliteStore {
 
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock();
-            let n: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM memories",
-                [],
-                |r| r.get(0),
-            ).map_err(|e| anyhow!("sqlite count error: {e}"))?;
+            let n: i64 = conn
+                .query_row("SELECT COUNT(*) FROM memories", [], |r| r.get(0))
+                .map_err(|e| anyhow!("sqlite count error: {e}"))?;
             Ok(n)
-        }).await.map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
+        })
+        .await
+        .map_err(|e| anyhow!("spawn_blocking join error: {e}"))?
     }
 
     /// Returns a clone of the inner `Arc<Mutex<Connection>>`. Useful
@@ -794,7 +845,14 @@ impl SqliteStore {
         self.conn.clone()
     }
 
-    pub fn insert_acl(&self, id: &str, principal: &str, resource: &str, permission: &str, effect: &str) -> Result<()> {
+    pub fn insert_acl(
+        &self,
+        id: &str,
+        principal: &str,
+        resource: &str,
+        permission: &str,
+        effect: &str,
+    ) -> Result<()> {
         let conn = self.conn.lock();
         let now = chrono::Utc::now().timestamp();
         conn.execute(
@@ -807,9 +865,9 @@ impl SqliteStore {
 
     pub fn list_acl(&self) -> Result<Vec<(String, String, String, String, String)>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare(
-            "SELECT id, principal, resource, permission, effect FROM memory_acl",
-        ).map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
+        let mut stmt = conn
+            .prepare("SELECT id, principal, resource, permission, effect FROM memory_acl")
+            .map_err(|e| anyhow!("sqlite prepare error: {e}"))?;
         let rows = stmt
             .query_map([], |row| {
                 Ok((
@@ -843,14 +901,18 @@ fn row_to_memory(row: &Row<'_>) -> rusqlite::Result<Memory> {
     let pinned: i32 = row.get("pinned")?;
     let archived: i32 = row.get("archived")?;
 
-    let memory_type = MemoryType::from_str(&memory_type_s)
-        .map_err(|e| rusqlite::Error::InvalidColumnType(1, e.to_string(), rusqlite::types::Type::Text))?;
-    let layer = MemoryLayer::from_str(&layer_s)
-        .map_err(|e| rusqlite::Error::InvalidColumnType(2, e.to_string(), rusqlite::types::Type::Text))?;
-    let source = SourceKind::from_str(&source_s)
-        .map_err(|e| rusqlite::Error::InvalidColumnType(12, e.to_string(), rusqlite::types::Type::Text))?;
-    let metadata: serde_json::Value = serde_json::from_str(&metadata_s)
-        .map_err(|e| rusqlite::Error::InvalidColumnType(13, e.to_string(), rusqlite::types::Type::Text))?;
+    let memory_type = MemoryType::from_str(&memory_type_s).map_err(|e| {
+        rusqlite::Error::InvalidColumnType(1, e.to_string(), rusqlite::types::Type::Text)
+    })?;
+    let layer = MemoryLayer::from_str(&layer_s).map_err(|e| {
+        rusqlite::Error::InvalidColumnType(2, e.to_string(), rusqlite::types::Type::Text)
+    })?;
+    let source = SourceKind::from_str(&source_s).map_err(|e| {
+        rusqlite::Error::InvalidColumnType(12, e.to_string(), rusqlite::types::Type::Text)
+    })?;
+    let metadata: serde_json::Value = serde_json::from_str(&metadata_s).map_err(|e| {
+        rusqlite::Error::InvalidColumnType(13, e.to_string(), rusqlite::types::Type::Text)
+    })?;
 
     Ok(Memory {
         id: row.get("id")?,
@@ -895,7 +957,12 @@ mod tests {
             "the quick brown fox",
             SourceKind::UserInput,
         );
-        m.summary = MultiGranularity::new("fox", "the quick brown fox", "the quick brown fox jumps over", "the quick brown fox jumps over the lazy dog");
+        m.summary = MultiGranularity::new(
+            "fox",
+            "the quick brown fox",
+            "the quick brown fox jumps over",
+            "the quick brown fox jumps over the lazy dog",
+        );
         m.embedding = vec![0.0; 4];
         m.importance = 0.42;
         m
@@ -922,7 +989,10 @@ mod tests {
         m.pinned = true;
         store.insert(&m).await.unwrap();
         let cands = store.candidates_for_compression(0, 1.0, 100).await.unwrap();
-        assert!(cands.is_empty(), "pinned memories must never be compression candidates");
+        assert!(
+            cands.is_empty(),
+            "pinned memories must never be compression candidates"
+        );
         let _ = std::fs::remove_file(path);
     }
 
@@ -940,7 +1010,10 @@ mod tests {
         b.last_access = 0;
         store.insert(&a).await.unwrap();
         store.insert(&b).await.unwrap();
-        store.update_compressed_from("absorbed", "summary-a").await.unwrap();
+        store
+            .update_compressed_from("absorbed", "summary-a")
+            .await
+            .unwrap();
         let cands = store.candidates_for_compression(0, 1.0, 100).await.unwrap();
         assert_eq!(cands.len(), 1);
         assert_eq!(cands[0].id, "fresh");
@@ -973,7 +1046,10 @@ mod tests {
         b.id = "id-b".to_string();
         store.insert(&a).await.unwrap();
         store.insert(&b).await.unwrap();
-        store.update_compressed_from("id-a", "summary-x").await.unwrap();
+        store
+            .update_compressed_from("id-a", "summary-x")
+            .await
+            .unwrap();
 
         let hits = store
             .get_many(&["id-a".to_string(), "id-b".to_string()])
@@ -994,7 +1070,10 @@ mod tests {
         b.id = "gone".to_string();
         store.insert(&a).await.unwrap();
         store.insert(&b).await.unwrap();
-        store.update_compressed_from("gone", "summary-z").await.unwrap();
+        store
+            .update_compressed_from("gone", "summary-z")
+            .await
+            .unwrap();
         let recent = store.list_recent(10).await.unwrap();
         assert!(recent.iter().all(|m| m.id != "gone"));
         assert!(recent.iter().any(|m| m.id == "kept"));
@@ -1013,7 +1092,10 @@ mod tests {
         b.layer = MemoryLayer::L2;
         store.insert(&a).await.unwrap();
         store.insert(&b).await.unwrap();
-        store.update_compressed_from("dead-l2", "summary-l2").await.unwrap();
+        store
+            .update_compressed_from("dead-l2", "summary-l2")
+            .await
+            .unwrap();
         let l2 = store.list_by_layer(MemoryLayer::L2, 10).await.unwrap();
         assert_eq!(l2.len(), 1);
         assert_eq!(l2[0].id, "alive-l2");

@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tracing::instrument;
 
-use crate::sync::{self as sync_ops, E2eeIdentity, EncryptedEnvelope, Pair};
 use crate::commands::error::CommandError;
+use crate::sync::{self as sync_ops, E2eeIdentity, EncryptedEnvelope, Pair};
 use crate::AppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,13 +46,20 @@ pub async fn sync_encrypt(request: EncryptRequest) -> Result<EncryptResponse, Co
         .map_err(|e| CommandError::validation("sync_encrypt").with_details(e.to_string()))?;
     let plaintext = base64::engine::general_purpose::STANDARD
         .decode(request.plaintext_b64.as_bytes())
-        .map_err(|e| CommandError::validation("sync_encrypt").with_details(format!("plaintext: {e}")))?;
-    let (env, fingerprint) = sync_ops::encrypt_for_peer(&local, &request.peer_public_b64, &plaintext)
-        .map_err(|e| CommandError::validation("sync_encrypt").with_details(e.to_string()))?;
+        .map_err(|e| {
+            CommandError::validation("sync_encrypt").with_details(format!("plaintext: {e}"))
+        })?;
+    let (env, fingerprint) =
+        sync_ops::encrypt_for_peer(&local, &request.peer_public_b64, &plaintext)
+            .map_err(|e| CommandError::validation("sync_encrypt").with_details(e.to_string()))?;
     let b64 = env
         .to_b64_json()
         .map_err(|e| CommandError::internal("sync_encrypt", &e))?;
-    Ok(EncryptResponse { envelope: env, envelope_b64: b64, fingerprint })
+    Ok(EncryptResponse {
+        envelope: env,
+        envelope_b64: b64,
+        fingerprint,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,7 +114,9 @@ pub async fn sync_send(
         .map_err(|e| CommandError::validation("sync_send").with_details(e.to_string()))?;
     let pt = base64::engine::general_purpose::STANDARD
         .decode(request.plaintext_b64.as_bytes())
-        .map_err(|e| CommandError::validation("sync_send").with_details(format!("plaintext: {e}")))?;
+        .map_err(|e| {
+            CommandError::validation("sync_send").with_details(format!("plaintext: {e}"))
+        })?;
     let transport = state.sync_transport.clone();
     let fingerprint = pair.fingerprint.clone();
     let id = tokio::task::spawn_blocking(move || {
@@ -116,7 +125,10 @@ pub async fn sync_send(
     })
     .await
     .map_err(|e| CommandError::internal("sync_send", &anyhow::anyhow!("{e}")))??;
-    Ok(SendSealedResponse { envelope_id: id, fingerprint })
+    Ok(SendSealedResponse {
+        envelope_id: id,
+        fingerprint,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,7 +151,8 @@ pub async fn sync_recv(
 ) -> Result<RecvResponse, CommandError> {
     let transport = state.sync_transport.clone();
     let inbox_msgs: Vec<sync_ops::InboxMessage> = tokio::task::spawn_blocking(move || {
-        transport.recv()
+        transport
+            .recv()
             .map_err(|e| CommandError::internal("sync_recv", &e))
     })
     .await

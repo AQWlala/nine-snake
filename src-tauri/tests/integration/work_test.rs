@@ -43,7 +43,9 @@ fn status_transition_records_completion() {
 fn timer_lifecycle_and_accumulation() {
     let tmp = TmpStore::new();
     let eng = engine(&tmp);
-    let t = eng.create_task("T".into(), "".into(), None, None).expect("create");
+    let t = eng
+        .create_task("T".into(), "".into(), None, None)
+        .expect("create");
     eng.start_timer(&t.id).expect("start");
     assert_eq!(eng.active_timer(), Some(t.id.clone()));
     eng.add_time(&t.id, 1500).expect("add");
@@ -91,7 +93,9 @@ fn update_task_clears_due_date() {
 fn delete_task_removes_row() {
     let tmp = TmpStore::new();
     let eng = engine(&tmp);
-    let t = eng.create_task("T".into(), "".into(), None, None).expect("create");
+    let t = eng
+        .create_task("T".into(), "".into(), None, None)
+        .expect("create");
     assert!(eng.delete_task(&t.id).expect("delete"));
     assert!(eng.get_task(&t.id).expect("get").is_none());
 }

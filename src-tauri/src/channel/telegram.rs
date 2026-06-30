@@ -77,7 +77,8 @@ impl TelegramBotAdapter {
     pub async fn poll_updates(&self) -> Result<Vec<(i64, String, String)>> {
         let offset = *self.last_update_id.lock() + 1;
         let url = self.api_url("getUpdates");
-        let resp = self.client
+        let resp = self
+            .client
             .post(&url)
             .json(&serde_json::json!({
                 "offset": offset,
@@ -93,7 +94,8 @@ impl TelegramBotAdapter {
         }
 
         let body: serde_json::Value = resp.json().await?;
-        let updates = body.get("result")
+        let updates = body
+            .get("result")
             .and_then(|r| r.as_array())
             .cloned()
             .unwrap_or_default();
@@ -104,8 +106,16 @@ impl TelegramBotAdapter {
                 *self.last_update_id.lock() = update_id;
             }
             if let Some(msg) = update.get("message") {
-                let chat_id = msg.get("chat").and_then(|c| c.get("id")).and_then(|v| v.as_i64()).unwrap_or(0);
-                let text = msg.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let chat_id = msg
+                    .get("chat")
+                    .and_then(|c| c.get("id"))
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let text = msg
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 if !text.is_empty() && chat_id != 0 {
                     messages.push((chat_id, format!("tg_{}", chat_id), text));
                 }
@@ -114,7 +124,12 @@ impl TelegramBotAdapter {
         Ok(messages)
     }
 
-    pub async fn send_message(&self, chat_id: i64, text: &str, reply_to: Option<i64>) -> Result<()> {
+    pub async fn send_message(
+        &self,
+        chat_id: i64,
+        text: &str,
+        reply_to: Option<i64>,
+    ) -> Result<()> {
         let url = self.api_url("sendMessage");
         let mut req = SendMessageRequest {
             chat_id,

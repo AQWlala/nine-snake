@@ -5,8 +5,8 @@ use tauri::State;
 use tracing::instrument;
 
 use crate::api::server::NineSnakeService;
-use crate::swarm::{OrchestrationReport, SwarmTask};
 use crate::commands::error::CommandError;
+use crate::swarm::{OrchestrationReport, SwarmTask};
 use crate::AppState;
 
 /// Tauri command: dispatch a swarm task.
@@ -27,7 +27,7 @@ pub async fn swarm_execute(
                 "blocked critical injection / credential leak in swarm_execute"
             );
             return Err(CommandError::validation("swarm_execute").with_details(
-                "输入包含潜在的安全风险（注入攻击或凭证泄露），已被拦截".to_string()
+                "输入包含潜在的安全风险（注入攻击或凭证泄露），已被拦截".to_string(),
             ));
         }
         if !scan.safe {

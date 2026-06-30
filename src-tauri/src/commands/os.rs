@@ -6,15 +6,13 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tracing::instrument;
 
-use crate::os::{self, Notification, NotificationLevel};
 use crate::commands::error::CommandError;
+use crate::os::{self, Notification, NotificationLevel};
 use crate::AppState;
 
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "os_clipboard_read"))]
-pub async fn os_clipboard_read(
-    state: State<'_, AppState>,
-) -> Result<String, CommandError> {
+pub async fn os_clipboard_read(state: State<'_, AppState>) -> Result<String, CommandError> {
     state
         .clipboard
         .read_text()
@@ -55,7 +53,8 @@ pub async fn os_shell_exec(
         os::parse_argv(&cmd)
             .map_err(|e| CommandError::validation("os_shell_exec").with_details(e.to_string()))?
     } else {
-        return Err(CommandError::validation("os_shell_exec").with_details("argv or command is required".to_string()));
+        return Err(CommandError::validation("os_shell_exec")
+            .with_details("argv or command is required".to_string()));
     };
     let cwd: Option<PathBuf> = request.cwd.map(PathBuf::from);
     let shell = state.shell.clone();

@@ -74,26 +74,17 @@ impl ErrorCard {
                 "Local storage error".to_string(),
                 Some("Check disk space and the data directory permissions.".to_string()),
             ),
-            ErrorKind::Validation => (
-                "Invalid input".to_string(),
-                None,
-            ),
+            ErrorKind::Validation => ("Invalid input".to_string(), None),
             ErrorKind::Permission => (
                 "Action not allowed".to_string(),
                 Some("Review the workspace root and shell whitelist.".to_string()),
             ),
-            ErrorKind::NotFound => (
-                "Not found".to_string(),
-                None,
-            ),
+            ErrorKind::NotFound => ("Not found".to_string(), None),
             ErrorKind::Internal => (
                 "Something went wrong".to_string(),
                 Some("The full error has been written to the log.".to_string()),
             ),
-            ErrorKind::Unknown => (
-                "Unexpected error".to_string(),
-                None,
-            ),
+            ErrorKind::Unknown => ("Unexpected error".to_string(), None),
         };
         Self {
             kind,
@@ -116,7 +107,10 @@ mod tests {
 
     #[test]
     fn permission_code_maps_to_permission() {
-        assert_eq!(ErrorKind::from_code(ErrorCode::Permission), ErrorKind::Permission);
+        assert_eq!(
+            ErrorKind::from_code(ErrorCode::Permission),
+            ErrorKind::Permission
+        );
     }
 
     #[test]

@@ -41,7 +41,11 @@ impl GraphSearchEngine {
         Self { store }
     }
 
-    pub fn traverse(&self, seed_ids: &[String], config: &GraphSearchConfig) -> Vec<GraphSearchResult> {
+    pub fn traverse(
+        &self,
+        seed_ids: &[String],
+        config: &GraphSearchConfig,
+    ) -> Vec<GraphSearchResult> {
         let mut results: Vec<GraphSearchResult> = Vec::new();
         let mut visited: HashSet<String> = seed_ids.iter().cloned().collect();
         let mut queue: VecDeque<(String, u32, Vec<String>, Vec<RelationKind>)> = VecDeque::new();

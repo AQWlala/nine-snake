@@ -164,7 +164,11 @@ impl SkillComposer {
         }
 
         // Sort descending by score.
-        scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         scored.truncate(self.max_skills);
         scored
@@ -217,10 +221,7 @@ impl SkillComposer {
             self.max_skills
         );
 
-        match llm
-            .generate(&prompt)
-            .await
-        {
+        match llm.generate(&prompt).await {
             Ok(response) => {
                 let text = response.trim();
                 let indices: Vec<usize> = serde_json::from_str(text).unwrap_or_default();

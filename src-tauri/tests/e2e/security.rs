@@ -38,7 +38,10 @@ async fn shell_rejects_null_byte() {
 #[tokio::test]
 async fn shell_rejects_unknown_binary() {
     let ex = ShellExecutor::new();
-    let err = ex.exec(vec!["definitely-not-a-real-binary"], None).await.unwrap_err();
+    let err = ex
+        .exec(vec!["definitely-not-a-real-binary"], None)
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("whitelist"));
 }
 
@@ -61,17 +64,15 @@ async fn e2ee_round_trip_succeeds() {
     let bob_pub = bob.public_key_b64();
 
     let plaintext = b"hello nine-snake v1.0";
-    let (env_alice_to_bob, _fp) = nine_snake_lib::sync::encrypt_for_peer(
-        &alice, &bob_pub, plaintext,
-    ).unwrap();
+    let (env_alice_to_bob, _fp) =
+        nine_snake_lib::sync::encrypt_for_peer(&alice, &bob_pub, plaintext).unwrap();
     let pair_bob = nine_snake_lib::sync::Pair::new(bob.clone(), &alice_pub).unwrap();
     let pt = pair_bob.decrypt(&env_alice_to_bob).unwrap();
     assert_eq!(pt, plaintext);
 
     // The other direction.
-    let (env_bob_to_alice, _fp) = nine_snake_lib::sync::encrypt_for_peer(
-        &bob, &alice_pub, b"reply",
-    ).unwrap();
+    let (env_bob_to_alice, _fp) =
+        nine_snake_lib::sync::encrypt_for_peer(&bob, &alice_pub, b"reply").unwrap();
     let pair_alice = nine_snake_lib::sync::Pair::new(alice.clone(), &bob_pub).unwrap();
     let pt2 = pair_alice.decrypt(&env_bob_to_alice).unwrap();
     assert_eq!(pt2, b"reply");
@@ -81,9 +82,8 @@ async fn e2ee_round_trip_succeeds() {
 async fn e2ee_tampered_envelope_fails() {
     let alice = E2eeIdentity::generate();
     let bob = E2eeIdentity::generate();
-    let (mut env, _fp) = nine_snake_lib::sync::encrypt_for_peer(
-        &alice, &bob.public_key_b64(), b"abc",
-    ).unwrap();
+    let (mut env, _fp) =
+        nine_snake_lib::sync::encrypt_for_peer(&alice, &bob.public_key_b64(), b"abc").unwrap();
     // Flip one byte of the ciphertext.
     if let Some(b) = env.ciphertext.last_mut() {
         *b ^= 0x01;

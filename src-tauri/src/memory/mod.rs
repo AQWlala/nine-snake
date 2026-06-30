@@ -32,8 +32,8 @@ pub mod lance_store;
 pub mod layers;
 pub mod migration;
 pub mod reflect;
-pub mod sqlite_store;
 pub mod sponge;
+pub mod sqlite_store;
 pub mod types;
 
 pub use acl::{AclEffect, AclPermission, AclRule, MemoryAcl};
@@ -48,11 +48,9 @@ pub use lance_store::LanceStore;
 pub use layers::LayerPolicy;
 pub use migration::{Migration, MigrationState, MigrationStatus};
 pub use reflect::{ReflectConfig, Reflection, ReflectionEngine};
-pub use sqlite_store::SqliteStore;
 pub use sponge::SpongeEngine;
-pub use types::{
-    Memory, MemoryLayer, MemoryType, MultiGranularity, RelationKind, SourceKind,
-};
+pub use sqlite_store::SqliteStore;
+pub use types::{Memory, MemoryLayer, MemoryType, MultiGranularity, RelationKind, SourceKind};
 
 /// Constants shared across the memory subsystem.
 pub mod constants {

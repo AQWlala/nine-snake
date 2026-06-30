@@ -54,10 +54,7 @@ fn updater_pubkey_is_not_placeholder() {
         pubkey, PLACEHOLDER,
         "updater pubkey is still the placeholder string — auto-update will fail verification"
     );
-    assert!(
-        !pubkey.is_empty(),
-        "updater pubkey is empty"
-    );
+    assert!(!pubkey.is_empty(), "updater pubkey is empty");
 }
 
 #[test]

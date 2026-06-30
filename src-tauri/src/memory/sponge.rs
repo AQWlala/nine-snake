@@ -161,7 +161,10 @@ impl SpongeEngine {
                     let new_emb_vec = self.embedder.embed(&new_emb).await?;
                     self.lance.upsert(&updated_id, &new_emb_vec).await?;
                     debug!(target: "nine_sponge", id = %updated_id, sim, "merged into existing");
-                    return Ok(SpongeResult::Merged { id: updated_id, similarity: sim });
+                    return Ok(SpongeResult::Merged {
+                        id: updated_id,
+                        similarity: sim,
+                    });
                 }
             }
         }
@@ -207,10 +210,7 @@ impl SpongeEngine {
                 mem.summary.s150 = redact_marker(&mem.summary.s150);
                 mem.summary.s50 = redact_marker(&mem.summary.s50);
                 if let serde_json::Value::Object(ref mut map) = mem.metadata {
-                    map.insert(
-                        "masked".to_string(),
-                        serde_json::Value::from(true),
-                    );
+                    map.insert("masked".to_string(), serde_json::Value::from(true));
                     map.insert(
                         "mask_reason".to_string(),
                         serde_json::Value::from("sensitive-content-predicate"),
@@ -222,29 +222,28 @@ impl SpongeEngine {
         // Async write to the vector index 鈥?outside the
         // parking_lot lock so the future stays `Send`.
         self.lance.upsert(&mem.id, &mem.embedding).await?;
-        self.sqlite.log_commit(
-            &uuid::Uuid::new_v4().to_string(),
-            None,
-            "store",
-            &mem.id,
-            &serde_json::json!({
-                "source": mem.source.as_str(),
-                "layer": mem.layer.as_str(),
-                "masked": mem.is_sensitive(),
-            }),
-            "sponge",
-            "absorbed new memory",
-        ).await?;
+        self.sqlite
+            .log_commit(
+                &uuid::Uuid::new_v4().to_string(),
+                None,
+                "store",
+                &mem.id,
+                &serde_json::json!({
+                    "source": mem.source.as_str(),
+                    "layer": mem.layer.as_str(),
+                    "masked": mem.is_sensitive(),
+                }),
+                "sponge",
+                "absorbed new memory",
+            )
+            .await?;
 
         // If there are near neighbours below the merge threshold, link
         // them with a "references" relation so the knowledge graph grows.
         for (nid, nsim) in top.iter() {
             if *nsim >= 0.6 && *nsim < SPONGE_MERGE_THRESHOLD {
-                let mut rel = MemoryRelation::new(
-                    mem.id.clone(),
-                    nid.clone(),
-                    RelationKind::References,
-                );
+                let mut rel =
+                    MemoryRelation::new(mem.id.clone(), nid.clone(), RelationKind::References);
                 rel.weight = *nsim;
                 let _ = self.sqlite.add_relation(&rel).await;
             }
@@ -253,14 +252,13 @@ impl SpongeEngine {
         // V2-T-22: LLM-driven entity extraction for richer relations.
         if let Some(ref extractor) = self.entity_extractor {
             let existing_ids: Vec<String> = top.iter().map(|(id, _)| id.clone()).collect();
-            match extractor.extract(&mem.id, &mem.content, &existing_ids).await {
+            match extractor
+                .extract(&mem.id, &mem.content, &existing_ids)
+                .await
+            {
                 Ok(extracted) => {
                     for er in extracted {
-                        let mut rel = MemoryRelation::new(
-                            er.from_id,
-                            er.to_id,
-                            er.relation,
-                        );
+                        let mut rel = MemoryRelation::new(er.from_id, er.to_id, er.relation);
                         if let Some(evidence) = er.evidence {
                             rel = rel.with_evidence(evidence);
                         }

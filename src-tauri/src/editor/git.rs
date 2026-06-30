@@ -97,7 +97,11 @@ pub fn status(repo: &Path) -> Result<GitStatus> {
         entries.push(StatusEntry { code, path });
     }
     let clean = entries.is_empty();
-    Ok(GitStatus { branch, entries, clean })
+    Ok(GitStatus {
+        branch,
+        entries,
+        clean,
+    })
 }
 
 /// `git log --oneline -n <limit> --pretty=format:%H%x00%h%x00%s%x00%an%x00%at`.

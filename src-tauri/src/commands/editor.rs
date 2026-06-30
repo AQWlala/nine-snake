@@ -3,15 +3,13 @@
 use tauri::State;
 use tracing::instrument;
 
-use crate::editor::{self as editor_ops};
 use crate::commands::error::CommandError;
+use crate::editor::{self as editor_ops};
 use crate::AppState;
 
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "editor_workspace_root"))]
-pub async fn editor_workspace_root(
-    state: State<'_, AppState>,
-) -> Result<String, CommandError> {
+pub async fn editor_workspace_root(state: State<'_, AppState>) -> Result<String, CommandError> {
     Ok(state.editor.workspace_root().to_string_lossy().into_owned())
 }
 
@@ -54,9 +52,7 @@ pub async fn editor_list(
 
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "git_status"))]
-pub async fn git_status(
-    state: State<'_, AppState>,
-) -> Result<editor_ops::GitStatus, CommandError> {
+pub async fn git_status(state: State<'_, AppState>) -> Result<editor_ops::GitStatus, CommandError> {
     editor_ops::git_status(state.editor.workspace_root())
         .map_err(|e| CommandError::internal("git_status", &e))
 }

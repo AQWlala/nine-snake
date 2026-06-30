@@ -92,7 +92,9 @@ impl AnthropicClient {
         let payload = self.build_request(messages);
         let url = format!("{}/v1/messages", self.base_url);
         let ssrf_guard = crate::security::SsrfGuard::new();
-        ssrf_guard.validate_url(&url).map_err(|e| anyhow::anyhow!("SSRF validation failed: {e}"))?;
+        ssrf_guard
+            .validate_url(&url)
+            .map_err(|e| anyhow::anyhow!("SSRF validation failed: {e}"))?;
 
         debug!(target: "nine_snake.llm", model = %self.model, "calling Anthropic API");
 
@@ -119,7 +121,10 @@ impl AnthropicClient {
             return Err(anyhow!("Anthropic API error {status}: {body}"));
         }
 
-        let parsed: Response = resp.json().await.with_context(|| "failed to parse Anthropic response")?;
+        let parsed: Response = resp
+            .json()
+            .await
+            .with_context(|| "failed to parse Anthropic response")?;
 
         let text = parsed
             .content
@@ -180,8 +185,14 @@ mod tests {
         );
 
         let messages = vec![
-            Message { role: Role::System, content: "You are a helpful assistant.".to_string() },
-            Message { role: Role::User, content: "Hello, Claude.".to_string() },
+            Message {
+                role: Role::System,
+                content: "You are a helpful assistant.".to_string(),
+            },
+            Message {
+                role: Role::User,
+                content: "Hello, Claude.".to_string(),
+            },
         ];
 
         let req = client.build_request(&messages);

@@ -45,7 +45,11 @@ impl TmpStore {
             )
             .expect("apply migrations");
         }
-        Self { dir, db_path, store }
+        Self {
+            dir,
+            db_path,
+            store,
+        }
     }
 
     /// Returns the path to a fresh tempdir that the caller can use

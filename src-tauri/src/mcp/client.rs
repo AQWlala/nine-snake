@@ -72,7 +72,11 @@ impl McpClient {
         info!(target: "nine_snake.mcp", server = %self.server_config.name, count = self.tools.len(), "discovered tools (transport not yet implemented)");
     }
 
-    pub async fn invoke_tool(&self, tool_name: &str, arguments: serde_json::Value) -> Result<McpToolResult> {
+    pub async fn invoke_tool(
+        &self,
+        tool_name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<McpToolResult> {
         if !self.connected {
             anyhow::bail!("MCP server '{}' is not connected", self.server_config.name);
         }

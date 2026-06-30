@@ -8,9 +8,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::outcome::{
-    fresh_outcome_id, Outcome, OutcomeLedger, OutcomeSource, OutcomeStatus,
-};
+use super::outcome::{fresh_outcome_id, Outcome, OutcomeLedger, OutcomeSource, OutcomeStatus};
 use crate::evolution::evolution_enabled;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,10 +20,7 @@ pub struct SkillCollectedArgs {
     pub duration_ms: u32,
 }
 
-pub fn collect_skill(
-    ledger: &Arc<dyn OutcomeLedger>,
-    args: SkillCollectedArgs,
-) -> Result<()> {
+pub fn collect_skill(ledger: &Arc<dyn OutcomeLedger>, args: SkillCollectedArgs) -> Result<()> {
     ledger.record(&Outcome {
         id: fresh_outcome_id(),
         source_id: args.skill_id,
@@ -48,10 +43,7 @@ pub struct SwarmCollectedArgs {
     pub duration_ms: u32,
 }
 
-pub fn collect_swarm(
-    ledger: &Arc<dyn OutcomeLedger>,
-    args: SwarmCollectedArgs,
-) -> Result<()> {
+pub fn collect_swarm(ledger: &Arc<dyn OutcomeLedger>, args: SwarmCollectedArgs) -> Result<()> {
     // One outcome per agent in the pipeline.
     for kind in &args.agent_kinds {
         ledger.record(&Outcome {
@@ -77,10 +69,7 @@ pub struct ChatCollectedArgs {
     pub duration_ms: u32,
 }
 
-pub fn collect_chat(
-    ledger: &Arc<dyn OutcomeLedger>,
-    args: ChatCollectedArgs,
-) -> Result<()> {
+pub fn collect_chat(ledger: &Arc<dyn OutcomeLedger>, args: ChatCollectedArgs) -> Result<()> {
     ledger.record(&Outcome {
         id: fresh_outcome_id(),
         source_id: args.conversation_id,

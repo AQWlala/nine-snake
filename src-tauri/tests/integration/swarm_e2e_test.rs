@@ -1,4 +1,4 @@
-﻿//! Swarm end-to-end integration tests.
+//! Swarm end-to-end integration tests.
 //!
 //! Validates the full v2.0 swarm pipeline:
 //! 1. Task creation → agent dispatch → parallel execution → report
@@ -11,10 +11,10 @@
 //! report, collect errors, and broadcast on the bus.
 
 use nine_snake_lib::llm::{LlmGateway, OllamaClient};
-use nine_snake_lib::swarm::orchestrator::{SwarmOrchestrator, SwarmTask};
+use nine_snake_lib::swarm::agents::{AgentKind, AgentOutput};
 use nine_snake_lib::swarm::bus::BusMessageType;
-use nine_snake_lib::swarm::negotiator::{Negotiator, NegotiationMethod};
-use nine_snake_lib::swarm::agents::{AgentOutput, AgentKind};
+use nine_snake_lib::swarm::negotiator::{NegotiationMethod, Negotiator};
+use nine_snake_lib::swarm::orchestrator::{SwarmOrchestrator, SwarmTask};
 use std::sync::Arc;
 
 fn mock_gateway() -> Arc<LlmGateway> {
@@ -34,16 +34,22 @@ fn mock_orchestrator() -> SwarmOrchestrator {
 async fn swarm_dispatch_parallel_agents_produces_report() {
     let orch = mock_orchestrator();
     let task = SwarmTask::new("Explain quantum computing in one sentence");
-    let report = orch.execute(task).await.expect("orchestration should complete");
+    let report = orch
+        .execute(task)
+        .await
+        .expect("orchestration should complete");
 
     // Even with failing agents, the report must be structurally valid.
     assert!(!report.task.description.is_empty());
-    
+
     // All 3 agents will fail with the mock LLM (pointed at dead port),
     // so failure_count reflects dispatch count. After negotiation, outputs
     // is reduced to 1 (the chosen/fallback output).
     assert_eq!(report.failure_count, 3, "all 3 agents should be dispatched");
-    assert!(!report.outputs.is_empty(), "negotiation produces at least 1 output");
+    assert!(
+        !report.outputs.is_empty(),
+        "negotiation produces at least 1 output"
+    );
     assert!(!report.approved, "no agent succeeded with mock LLM");
 }
 
@@ -51,8 +57,11 @@ async fn swarm_dispatch_parallel_agents_produces_report() {
 async fn swarm_explicit_agent_count_is_respected() {
     let orch = mock_orchestrator();
     let task = SwarmTask::new("Write a haiku about Rust").with_agent_count(4);
-    let report = orch.execute(task).await.expect("orchestration should complete");
-    
+    let report = orch
+        .execute(task)
+        .await
+        .expect("orchestration should complete");
+
     // failure_count = number of agents dispatched (all fail with mock LLM)
     assert_eq!(report.failure_count, 4, "should dispatch exactly 4 agents");
 }
@@ -62,8 +71,11 @@ async fn swarm_by_kinds_selects_correct_agents() {
     let orch = mock_orchestrator();
     let mut task = SwarmTask::new("Review this: fn add(a,b) -> a+b");
     task.agents = vec!["Coder".into(), "Reviewer".into()];
-    let report = orch.execute(task).await.expect("orchestration should complete");
-    
+    let report = orch
+        .execute(task)
+        .await
+        .expect("orchestration should complete");
+
     // 2 agents dispatched by kind, both fail with mock LLM
     assert_eq!(report.failure_count, 2, "should dispatch exactly 2 agents");
 }
@@ -76,7 +88,10 @@ async fn swarm_bus_broadcasts_completion_message() {
     let mut rx = bus.subscribe();
 
     let task = SwarmTask::new("Test bus broadcast");
-    let _report = orch.execute(task).await.expect("orchestration should complete");
+    let _report = orch
+        .execute(task)
+        .await
+        .expect("orchestration should complete");
 
     // After completion, at least one broadcast should be on the bus.
     let mut found = false;

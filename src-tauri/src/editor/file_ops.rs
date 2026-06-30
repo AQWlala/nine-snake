@@ -95,9 +95,8 @@ impl EditorState {
                 root.display()
             ));
         }
-        let canonical = std::fs::canonicalize(&root).with_context(|| {
-            format!("canonicalising workspace root: {}", root.display())
-        })?;
+        let canonical = std::fs::canonicalize(&root)
+            .with_context(|| format!("canonicalising workspace root: {}", root.display()))?;
         Ok(Self {
             inner: Arc::new(EditorInner {
                 workspace_root: canonical,
@@ -160,8 +159,8 @@ impl EditorState {
     #[instrument(skip(self))]
     pub fn read_file(&self, path: &str) -> Result<FileContent> {
         let full = self.resolve(path)?;
-        let meta = std::fs::metadata(&full)
-            .with_context(|| format!("stat failed: {}", full.display()))?;
+        let meta =
+            std::fs::metadata(&full).with_context(|| format!("stat failed: {}", full.display()))?;
         if meta.len() > MAX_FILE_BYTES {
             return Err(anyhow!(
                 "file too large ({} bytes, cap {}): {}",
@@ -195,8 +194,8 @@ impl EditorState {
         }
         std::fs::write(&full, content.as_bytes())
             .with_context(|| format!("write failed: {}", full.display()))?;
-        let meta = std::fs::metadata(&full)
-            .with_context(|| format!("stat failed: {}", full.display()))?;
+        let meta =
+            std::fs::metadata(&full).with_context(|| format!("stat failed: {}", full.display()))?;
         Ok(FileContent {
             path: relative_to(&full, &self.inner.workspace_root),
             content: content.to_string(),
@@ -247,11 +246,7 @@ impl EditorState {
             });
         }
         // Stable order: directories first, then files; alphabetical.
-        out.sort_by(|a, b| {
-            b.is_dir
-                .cmp(&a.is_dir)
-                .then_with(|| a.path.cmp(&b.path))
-        });
+        out.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then_with(|| a.path.cmp(&b.path)));
         Ok(out)
     }
 
@@ -263,8 +258,8 @@ impl EditorState {
     pub fn start_watcher(&self) -> Result<mpsc::Receiver<FileEvent>> {
         let (tx, rx) = mpsc::channel::<FileEvent>(256);
         let root = self.inner.workspace_root.clone();
-        let mut watcher: RecommendedWatcher = notify::recommended_watcher(
-            move |res: notify::Result<Event>| {
+        let mut watcher: RecommendedWatcher =
+            notify::recommended_watcher(move |res: notify::Result<Event>| {
                 match res {
                     Ok(ev) => {
                         let kind = match ev.kind {
@@ -293,9 +288,8 @@ impl EditorState {
                         warn!(target: "nine_snake.editor", error = ?e, "watcher error");
                     }
                 }
-            },
-        )
-        .context("creating notify watcher")?;
+            })
+            .context("creating notify watcher")?;
         watcher
             .watch(&self.inner.workspace_root, RecursiveMode::Recursive)
             .context("starting watcher on workspace root")?;
@@ -333,7 +327,7 @@ fn relative_to(path: &Path, root: &Path) -> String {
 
 fn should_skip(path: &Path) -> bool {
     if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-        if SKIP_DIRS.iter().any(|s| *s == name) {
+        if SKIP_DIRS.contains(&name) {
             return true;
         }
         if name.starts_with('.') && name != "." && name != ".." {
@@ -352,8 +346,12 @@ pub fn validate_workspace_path(path: &str, workspace_root: &Path) -> Result<Path
     };
     let canonical = std::fs::canonicalize(&candidate)
         .with_context(|| format!("path does not exist: {}", candidate.display()))?;
-    let root_canonical = std::fs::canonicalize(workspace_root)
-        .with_context(|| format!("workspace root does not exist: {}", workspace_root.display()))?;
+    let root_canonical = std::fs::canonicalize(workspace_root).with_context(|| {
+        format!(
+            "workspace root does not exist: {}",
+            workspace_root.display()
+        )
+    })?;
     if !canonical.starts_with(&root_canonical) {
         return Err(anyhow!(
             "path escapes workspace root: {}",
@@ -391,10 +389,7 @@ pub fn spawn_watcher(state: &EditorState) -> Result<WatcherHandle> {
 /// Polls a watcher for `timeout` and returns all events that arrived
 /// in that window.  Used by the front-end's poll-based fallback when
 /// it cannot subscribe to a Tauri event stream.
-pub async fn drain_for(
-    handle: &WatcherHandle,
-    timeout: Duration,
-) -> Vec<FileEvent> {
+pub async fn drain_for(handle: &WatcherHandle, timeout: Duration) -> Vec<FileEvent> {
     let mut out = Vec::new();
     let deadline = tokio::time::Instant::now() + timeout;
     loop {
@@ -429,9 +424,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state = EditorState::new(dir.path()).unwrap();
         let path = "hello.txt";
-        let written = state
-            .write_file(path, "hello world")
-            .expect("write");
+        let written = state.write_file(path, "hello world").expect("write");
         assert_eq!(written.content, "hello world");
         let read_back = state.read_file(path).expect("read");
         assert_eq!(read_back.content, "hello world");
@@ -443,7 +436,11 @@ mod tests {
         fs::create_dir(dir.path().join("src")).unwrap();
         fs::write(dir.path().join("src").join("main.rs"), "fn main(){}").unwrap();
         fs::create_dir(dir.path().join("node_modules")).unwrap();
-        fs::write(dir.path().join("node_modules").join("pkg.js"), "module.exports = 1;").unwrap();
+        fs::write(
+            dir.path().join("node_modules").join("pkg.js"),
+            "module.exports = 1;",
+        )
+        .unwrap();
         let state = EditorState::new(dir.path()).unwrap();
         let tree = state.list_tree(Some(3)).unwrap();
         assert!(tree.iter().any(|e| e.path == "src/main.rs"));

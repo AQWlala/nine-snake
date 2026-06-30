@@ -14,7 +14,12 @@ use nine_snake_lib::memory::reflect::{ReflectConfig, ReflectionEngine};
 use nine_snake_lib::memory::types::{Memory, MemoryLayer, MemoryType, SourceKind};
 
 fn high_mem(id: &str, content: &str) -> Memory {
-    let mut m = Memory::new(MemoryType::Semantic, MemoryLayer::L3, content, SourceKind::UserInput);
+    let mut m = Memory::new(
+        MemoryType::Semantic,
+        MemoryLayer::L3,
+        content,
+        SourceKind::UserInput,
+    );
     m.id = id.to_string();
     m.importance = 0.75;
     m
@@ -40,9 +45,18 @@ async fn store_compress_reflect_pipeline() {
     }
 
     // 3. COMPRESS — mark m1..m3 as compressed-from, leaving m4.
-    tmp.store.update_compressed_from("m1", "summary-1").await.unwrap();
-    tmp.store.update_compressed_from("m2", "summary-1").await.unwrap();
-    tmp.store.update_compressed_from("m3", "summary-1").await.unwrap();
+    tmp.store
+        .update_compressed_from("m1", "summary-1")
+        .await
+        .unwrap();
+    tmp.store
+        .update_compressed_from("m2", "summary-1")
+        .await
+        .unwrap();
+    tmp.store
+        .update_compressed_from("m3", "summary-1")
+        .await
+        .unwrap();
     let remaining = tmp.store.list_recent(10).await.unwrap();
     let remaining_ids: Vec<String> = remaining.iter().map(|m| m.id.clone()).collect();
     assert_eq!(remaining_ids, vec!["m4".to_string()]);

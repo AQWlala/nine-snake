@@ -55,12 +55,13 @@ use crate::api::server::NineSnakeService as ApiNineSnakeService;
 use crate::skills::types as skill_types;
 use crate::AppState;
 
-
 // Helper macro: decode a JSON request body and dispatch to the handler.
 
 macro_rules! decode_and_dispatch {
     ($bytes:expr, $decode:expr) => {{
-        $decode($bytes).map(|body| body.0).map_err(|e| GrpcError::invalid_argument(format!("decode error: {}", e)))
+        $decode($bytes)
+            .map(|body| body.0)
+            .map_err(|e| GrpcError::invalid_argument(format!("decode error: {}", e)))
     }};
 }
 
@@ -148,10 +149,7 @@ pub trait NineSnakeService: Send + Sync {
     async fn get(&self, req: GetMemoryRequest) -> Result<Memory, GrpcError>;
     async fn search(&self, req: SearchRequest) -> Result<SearchResponse, GrpcError>;
     async fn list_recent(&self, req: ListRecentRequest) -> Result<ListRecentResponse, GrpcError>;
-    async fn update_importance(
-        &self,
-        req: UpdateImportanceRequest,
-    ) -> Result<Memory, GrpcError>;
+    async fn update_importance(&self, req: UpdateImportanceRequest) -> Result<Memory, GrpcError>;
     async fn delete(&self, req: DeleteRequest) -> Result<DeleteResponse, GrpcError>;
     async fn get_many(&self, req: GetManyRequest) -> Result<GetManyResponse, GrpcError>;
     async fn get_stats(&self, _req: StatsRequest) -> Result<StatsResponse, GrpcError>;
@@ -172,10 +170,7 @@ pub trait NineSnakeService: Send + Sync {
         &self,
         req: ListReflectionsRequest,
     ) -> Result<ListReflectionsResponse, GrpcError>;
-    async fn get_reflection(
-        &self,
-        req: GetReflectionRequest,
-    ) -> Result<Reflection, GrpcError>;
+    async fn get_reflection(&self, req: GetReflectionRequest) -> Result<Reflection, GrpcError>;
 
     // LLM (3 RPCs)
     async fn complete(&self, req: CompleteRequest) -> Result<CompleteResponse, GrpcError>;
@@ -220,19 +215,31 @@ impl std::error::Error for GrpcError {}
 
 impl GrpcError {
     pub fn invalid_argument(msg: impl Into<String>) -> Self {
-        Self { status: GrpcStatus::InvalidArgument, message: msg.into() }
+        Self {
+            status: GrpcStatus::InvalidArgument,
+            message: msg.into(),
+        }
     }
     pub fn not_found(msg: impl Into<String>) -> Self {
-        Self { status: GrpcStatus::NotFound, message: msg.into() }
+        Self {
+            status: GrpcStatus::NotFound,
+            message: msg.into(),
+        }
     }
     pub fn internal(msg: impl Into<String>) -> Self {
-        Self { status: GrpcStatus::Internal, message: msg.into() }
+        Self {
+            status: GrpcStatus::Internal,
+            message: msg.into(),
+        }
     }
 }
 
 impl From<anyhow::Error> for GrpcError {
     fn from(e: anyhow::Error) -> Self {
-        Self { status: GrpcStatus::Internal, message: format!("{e:#}") }
+        Self {
+            status: GrpcStatus::Internal,
+            message: format!("{e:#}"),
+        }
     }
 }
 
@@ -260,7 +267,9 @@ impl NineSnakeService for NineSnakeServiceImpl {
     async fn store(&self, req: StoreMemoryRequest) -> Result<StoreMemoryResponse, GrpcError> {
         let layer = layer_to_rust(req.layer);
         let memory_type = memory_type_to_rust(req.memory_type);
-        let source = req.source.parse::<crate::memory::SourceKind>()
+        let source = req
+            .source
+            .parse::<crate::memory::SourceKind>()
             .unwrap_or(crate::memory::SourceKind::UserInput);
         let command_req = crate::api::server::StoreMemoryRequest {
             content: req.content,
@@ -270,10 +279,15 @@ impl NineSnakeService for NineSnakeServiceImpl {
             metadata: if req.metadata_json.is_empty() {
                 None
             } else {
-                Some(serde_json::from_str(&req.metadata_json).map_err(|e| GrpcError::internal(e.to_string()))?)
+                Some(
+                    serde_json::from_str(&req.metadata_json)
+                        .map_err(|e| GrpcError::internal(e.to_string()))?,
+                )
             },
         };
-        let resp = self.state.memory_store(command_req)
+        let resp = self
+            .state
+            .memory_store(command_req)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(StoreMemoryResponse {
@@ -304,19 +318,28 @@ impl NineSnakeService for NineSnakeServiceImpl {
                 Some(layer_to_rust(req.layer))
             },
         };
-        let hits = self.state.memory_search(command_req)
+        let hits = self
+            .state
+            .memory_search(command_req)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(SearchResponse {
             hits: hits
                 .into_iter()
-                .map(|h| SearchHit { memory: memory_to_proto(h.memory), score: h.score })
+                .map(|h| SearchHit {
+                    memory: memory_to_proto(h.memory),
+                    score: h.score,
+                })
                 .collect(),
         })
     }
 
     async fn list_recent(&self, req: ListRecentRequest) -> Result<ListRecentResponse, GrpcError> {
-        let limit = if req.limit == 0 { 20 } else { req.limit as usize };
+        let limit = if req.limit == 0 {
+            20
+        } else {
+            req.limit as usize
+        };
         let sqlite = self.state.sqlite.clone();
         let mems = tokio::task::spawn(async move { sqlite.list_recent(limit).await })
             .await
@@ -327,10 +350,7 @@ impl NineSnakeService for NineSnakeServiceImpl {
         })
     }
 
-    async fn update_importance(
-        &self,
-        req: UpdateImportanceRequest,
-    ) -> Result<Memory, GrpcError> {
+    async fn update_importance(&self, req: UpdateImportanceRequest) -> Result<Memory, GrpcError> {
         let sqlite = self.state.sqlite.clone();
         let id = req.id.clone();
         let importance = req.importance.clamp(0.0, 1.0);
@@ -378,28 +398,62 @@ impl NineSnakeService for NineSnakeServiceImpl {
         let total = rows.values().sum();
         Ok(StatsResponse {
             total_memories: total,
-            by_layer_l0: rows.get(&crate::memory::MemoryLayer::L0).copied().unwrap_or(0),
-            by_layer_l1: rows.get(&crate::memory::MemoryLayer::L1).copied().unwrap_or(0),
-            by_layer_l2: rows.get(&crate::memory::MemoryLayer::L2).copied().unwrap_or(0),
-            by_layer_l3: rows.get(&crate::memory::MemoryLayer::L3).copied().unwrap_or(0),
-            by_layer_l4: rows.get(&crate::memory::MemoryLayer::L4).copied().unwrap_or(0),
-            by_layer_l5: rows.get(&crate::memory::MemoryLayer::L5).copied().unwrap_or(0),
-            by_layer_l6: rows.get(&crate::memory::MemoryLayer::L6).copied().unwrap_or(0),
-            by_layer_l7: rows.get(&crate::memory::MemoryLayer::L7).copied().unwrap_or(0),
+            by_layer_l0: rows
+                .get(&crate::memory::MemoryLayer::L0)
+                .copied()
+                .unwrap_or(0),
+            by_layer_l1: rows
+                .get(&crate::memory::MemoryLayer::L1)
+                .copied()
+                .unwrap_or(0),
+            by_layer_l2: rows
+                .get(&crate::memory::MemoryLayer::L2)
+                .copied()
+                .unwrap_or(0),
+            by_layer_l3: rows
+                .get(&crate::memory::MemoryLayer::L3)
+                .copied()
+                .unwrap_or(0),
+            by_layer_l4: rows
+                .get(&crate::memory::MemoryLayer::L4)
+                .copied()
+                .unwrap_or(0),
+            by_layer_l5: rows
+                .get(&crate::memory::MemoryLayer::L5)
+                .copied()
+                .unwrap_or(0),
+            by_layer_l6: rows
+                .get(&crate::memory::MemoryLayer::L6)
+                .copied()
+                .unwrap_or(0),
+            by_layer_l7: rows
+                .get(&crate::memory::MemoryLayer::L7)
+                .copied()
+                .unwrap_or(0),
         })
     }
 
     // ---- Swarm ----------------------------------------------------------
 
     async fn swarm_execute(&self, req: SwarmRequest) -> Result<SwarmResponse, GrpcError> {
-        let agents: Vec<String> = req.pipeline.iter().map(|k| agent_kind_to_rust(*k)).collect();
+        let agents: Vec<String> = req
+            .pipeline
+            .iter()
+            .map(|k| agent_kind_to_rust(*k))
+            .collect();
         let task = crate::swarm::SwarmTask {
             description: req.description,
-            agent_count: if agents.is_empty() { 3 } else { agents.len().clamp(2, 6) as u32 },
+            agent_count: if agents.is_empty() {
+                3
+            } else {
+                agents.len().clamp(2, 6) as u32
+            },
             max_retries: req.max_retries,
             agents,
         };
-        let result = self.state.swarm_execute(task)
+        let result = self
+            .state
+            .swarm_execute(task)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(SwarmResponse {
@@ -409,7 +463,7 @@ impl NineSnakeService for NineSnakeServiceImpl {
                 .outputs
                 .into_iter()
                 .map(|o| AgentOutput {
-                    kind: agent_kind_from_rust(&o.kind.as_str()),
+                    kind: agent_kind_from_rust(o.kind.as_str()),
                     author: o.author,
                     body: o.body,
                     confidence: o.confidence,
@@ -435,7 +489,10 @@ impl NineSnakeService for NineSnakeServiceImpl {
 
     async fn get_agent(&self, req: GetAgentRequest) -> Result<Agent, GrpcError> {
         let kind_str = agent_kind_to_rust(req.kind);
-        let agent = self.state.swarm.get_agent(&kind_str)
+        let agent = self
+            .state
+            .swarm
+            .get_agent(&kind_str)
             .ok_or_else(|| GrpcError::not_found(format!("agent {kind_str}")))?;
         Ok(Agent {
             kind: req.kind,
@@ -486,7 +543,8 @@ impl NineSnakeService for NineSnakeServiceImpl {
 
     async fn reflect_now(&self, _req: ReflectRequest) -> Result<ReflectResponse, GrpcError> {
         let engine = self.state.reflection.clone();
-        let rows = engine.reflect_now()
+        let rows = engine
+            .reflect_now()
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(ReflectResponse {
@@ -498,7 +556,11 @@ impl NineSnakeService for NineSnakeServiceImpl {
         &self,
         req: ListReflectionsRequest,
     ) -> Result<ListReflectionsResponse, GrpcError> {
-        let limit = if req.limit == 0 { 20 } else { req.limit as usize };
+        let limit = if req.limit == 0 {
+            20
+        } else {
+            req.limit as usize
+        };
         let engine = self.state.reflection.clone();
         let rows = tokio::task::spawn_blocking(move || engine.list_recent(limit))
             .await
@@ -509,10 +571,7 @@ impl NineSnakeService for NineSnakeServiceImpl {
         })
     }
 
-    async fn get_reflection(
-        &self,
-        req: GetReflectionRequest,
-    ) -> Result<Reflection, GrpcError> {
+    async fn get_reflection(&self, req: GetReflectionRequest) -> Result<Reflection, GrpcError> {
         let engine = self.state.reflection.clone();
         let id = req.id;
         let r = tokio::task::spawn_blocking(move || engine.get(&id))
@@ -526,7 +585,9 @@ impl NineSnakeService for NineSnakeServiceImpl {
     // ---- LLM ------------------------------------------------------------
 
     async fn complete(&self, req: CompleteRequest) -> Result<CompleteResponse, GrpcError> {
-        let text = self.state.llm_complete(req.prompt)
+        let text = self
+            .state
+            .llm_complete(req.prompt)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(CompleteResponse {
@@ -541,9 +602,16 @@ impl NineSnakeService for NineSnakeServiceImpl {
         let msgs: Vec<crate::llm::ChatMessage> = req
             .messages
             .into_iter()
-            .map(|m| crate::llm::ChatMessage { role: m.role, content: m.content })
+            .map(|m| crate::llm::ChatMessage {
+                role: m.role,
+                content: m.content,
+            })
             .collect();
-        let model = if req.model.is_empty() { None } else { Some(req.model) };
+        let model = if req.model.is_empty() {
+            None
+        } else {
+            Some(req.model)
+        };
         let resp = if let Some(ref m) = model {
             self.state.llm.chat_with_model(m, msgs).await
         } else {
@@ -551,7 +619,10 @@ impl NineSnakeService for NineSnakeServiceImpl {
         }
         .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(ChatResponse {
-            message: ChatMessage { role: resp.message.role, content: resp.message.content },
+            message: ChatMessage {
+                role: resp.message.role,
+                content: resp.message.content,
+            },
             model: resp.model,
             eval_count: resp.eval_count.unwrap_or(0) as i64,
             total_duration_ns: resp.total_duration.unwrap_or(0) as i64,
@@ -559,7 +630,10 @@ impl NineSnakeService for NineSnakeServiceImpl {
     }
 
     async fn embed(&self, req: EmbedRequest) -> Result<EmbedResponse, GrpcError> {
-        let v = self.state.embedder.embed(&req.text)
+        let v = self
+            .state
+            .embedder
+            .embed(&req.text)
             .await
             .map_err(|e| GrpcError::internal(e.to_string()))?;
         let dim = v.len() as u32;
@@ -569,8 +643,10 @@ impl NineSnakeService for NineSnakeServiceImpl {
     // ---- Skills ---------------------------------------------------------
 
     async fn skill_create(&self, req: CreateSkillRequest) -> Result<Skill, GrpcError> {
-        let r = self.state.skills.create_skill(
-            skill_types::CreateSkillRequest {
+        let r = self
+            .state
+            .skills
+            .create_skill(skill_types::CreateSkillRequest {
                 name: req.name,
                 description: req.description,
                 code: req.code,
@@ -582,21 +658,21 @@ impl NineSnakeService for NineSnakeServiceImpl {
                     Some(req.source_memory_id)
                 },
                 ..Default::default()
-            },
-        )
-        .map_err(|e| GrpcError::internal(e.to_string()))?;
+            })
+            .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(skill_to_proto(r))
     }
 
     async fn skill_use(&self, req: UseSkillRequest) -> Result<UseSkillResponse, GrpcError> {
-        let r = self.state.skills.use_skill(
-            skill_types::UseSkillRequest {
+        let r = self
+            .state
+            .skills
+            .use_skill(skill_types::UseSkillRequest {
                 id: req.id,
                 params: req.params,
-            },
-        )
-        .await
-        .map_err(|e| GrpcError::internal(e.to_string()))?;
+            })
+            .await
+            .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(UseSkillResponse {
             result: SkillResult {
                 skill_id: r.skill_id,
@@ -608,25 +684,35 @@ impl NineSnakeService for NineSnakeServiceImpl {
     }
 
     async fn skill_rate(&self, req: RateSkillRequest) -> Result<Skill, GrpcError> {
-        let r = self.state.skills.rate_skill(
-            skill_types::RateSkillRequest {
+        let r = self
+            .state
+            .skills
+            .rate_skill(skill_types::RateSkillRequest {
                 id: req.id,
                 rating: req.rating,
-            },
-        )
-        .map_err(|e| GrpcError::internal(e.to_string()))?;
+            })
+            .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(skill_to_proto(r))
     }
 
     async fn skill_list(&self, req: ListSkillsRequest) -> Result<ListSkillsResponse, GrpcError> {
-        let r = self.state.skills.list_skills(
-            skill_types::ListSkillsRequest {
-                language: if req.language.is_empty() { None } else { Some(req.language) },
-                tag: if req.tag.is_empty() { None } else { Some(req.tag) },
+        let r = self
+            .state
+            .skills
+            .list_skills(skill_types::ListSkillsRequest {
+                language: if req.language.is_empty() {
+                    None
+                } else {
+                    Some(req.language)
+                },
+                tag: if req.tag.is_empty() {
+                    None
+                } else {
+                    Some(req.tag)
+                },
                 limit: if req.limit == 0 { 50 } else { req.limit },
-            },
-        )
-        .map_err(|e| GrpcError::internal(e.to_string()))?;
+            })
+            .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(ListSkillsResponse {
             skills: r.into_iter().map(skill_to_proto).collect(),
         })
@@ -636,13 +722,14 @@ impl NineSnakeService for NineSnakeServiceImpl {
         &self,
         req: SearchSkillsRequest,
     ) -> Result<SearchSkillsResponse, GrpcError> {
-        let r = self.state.skills.search_skills(
-            skill_types::SkillSearchRequest {
+        let r = self
+            .state
+            .skills
+            .search_skills(skill_types::SkillSearchRequest {
                 query: req.query,
                 limit: if req.limit == 0 { 50 } else { req.limit },
-            },
-        )
-        .map_err(|e| GrpcError::internal(e.to_string()))?;
+            })
+            .map_err(|e| GrpcError::internal(e.to_string()))?;
         Ok(SearchSkillsResponse {
             skills: r.into_iter().map(skill_to_proto).collect(),
         })
@@ -687,13 +774,21 @@ impl NineSnakeService for NineSnakeServiceImpl {
     async fn get_agent(&self, _req: GetAgentRequest) -> Result<Agent, GrpcError> {
         Err(GrpcError::internal("gRPC feature not enabled"))
     }
-    fn stream_events(&self, _req: StreamEventsRequest) -> Pin<Box<dyn Stream<Item = Result<SwarmEvent, GrpcError>> + Send>> {
-        Box::pin(futures_util::stream::once(async { Err(GrpcError::internal("gRPC feature not enabled")) }))
+    fn stream_events(
+        &self,
+        _req: StreamEventsRequest,
+    ) -> Pin<Box<dyn Stream<Item = Result<SwarmEvent, GrpcError>> + Send>> {
+        Box::pin(futures_util::stream::once(async {
+            Err(GrpcError::internal("gRPC feature not enabled"))
+        }))
     }
     async fn reflect_now(&self, _req: ReflectRequest) -> Result<ReflectResponse, GrpcError> {
         Err(GrpcError::internal("gRPC feature not enabled"))
     }
-    async fn list_reflections(&self, _req: ListReflectionsRequest) -> Result<ListReflectionsResponse, GrpcError> {
+    async fn list_reflections(
+        &self,
+        _req: ListReflectionsRequest,
+    ) -> Result<ListReflectionsResponse, GrpcError> {
         Err(GrpcError::internal("gRPC feature not enabled"))
     }
     async fn get_reflection(&self, _req: GetReflectionRequest) -> Result<Reflection, GrpcError> {
@@ -720,7 +815,10 @@ impl NineSnakeService for NineSnakeServiceImpl {
     async fn skill_list(&self, _req: ListSkillsRequest) -> Result<ListSkillsResponse, GrpcError> {
         Err(GrpcError::internal("gRPC feature not enabled"))
     }
-    async fn skill_search(&self, _req: SearchSkillsRequest) -> Result<SearchSkillsResponse, GrpcError> {
+    async fn skill_search(
+        &self,
+        _req: SearchSkillsRequest,
+    ) -> Result<SearchSkillsResponse, GrpcError> {
         Err(GrpcError::internal("gRPC feature not enabled"))
     }
 }
@@ -893,7 +991,6 @@ async fn grpc_service(
 ) -> Result<Response<BoxBody>, Infallible> {
     let path = req.uri().path().to_string();
 
-
     // Collect the request body
     let body_bytes = match req.into_body().collect().await {
         Ok(collected) => collected.to_bytes(),
@@ -915,12 +1012,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<StoreMemoryRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.store(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.store(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -928,12 +1023,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<GetMemoryRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.get(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.get(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -941,12 +1034,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<SearchRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.search(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.search(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -954,12 +1045,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<ListRecentRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.list_recent(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.list_recent(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -967,12 +1056,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<UpdateImportanceRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.update_importance(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.update_importance(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -980,12 +1067,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<DeleteRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.delete(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.delete(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -993,12 +1078,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<GetManyRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.get_many(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.get_many(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1006,12 +1089,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<StatsRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.get_stats(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.get_stats(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1020,12 +1101,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<SwarmRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.swarm_execute(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.swarm_execute(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1033,12 +1112,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<ListAgentsRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.list_agents(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.list_agents(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1046,30 +1123,29 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<GetAgentRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.get_agent(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.get_agent(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
         "/nine_snake.v1.SwarmService/StreamEvents" => {
             // Server-streaming RPC - return unimplemented for now
-            (hyper::StatusCode::NOT_IMPLEMENTED, b"server-streaming not implemented".to_vec())
+            (
+                hyper::StatusCode::NOT_IMPLEMENTED,
+                b"server-streaming not implemented".to_vec(),
+            )
         }
         // Reflect service RPCs
         "/nine_snake.v1.ReflectService/ReflectNow" => {
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<ReflectRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.reflect_now(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.reflect_now(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1077,12 +1153,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<ListReflectionsRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.list_reflections(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.list_reflections(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1090,12 +1164,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<GetReflectionRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.get_reflection(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.get_reflection(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1104,12 +1176,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<CompleteRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.complete(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.complete(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1117,12 +1187,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<ChatRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.chat(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.chat(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1130,12 +1198,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<EmbedRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.embed(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.embed(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1144,12 +1210,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<CreateSkillRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.skill_create(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.skill_create(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1157,12 +1221,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<UseSkillRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.skill_use(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.skill_use(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1170,12 +1232,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<RateSkillRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.skill_rate(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.skill_rate(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1183,12 +1243,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<ListSkillsRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.skill_list(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.skill_list(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1196,12 +1254,10 @@ async fn grpc_service(
             match decode_and_dispatch!(&body_vec, |bytes| {
                 serde_json::from_slice::<JsonBody<SearchSkillsRequest>>(bytes)
             }) {
-                Ok(req) => {
-                    match service.skill_search(req).await {
-                        Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
-                        Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
-                    }
-                }
+                Ok(req) => match service.skill_search(req).await {
+                    Ok(resp) => (hyper::StatusCode::OK, encode_json_response(&resp)),
+                    Err(e) => (hyper::StatusCode::INTERNAL_SERVER_ERROR, encode_error(&e)),
+                },
                 Err(e) => (hyper::StatusCode::BAD_REQUEST, encode_error(&e)),
             }
         }
@@ -1260,7 +1316,6 @@ fn vec_to_box_body(data: Vec<u8>) -> BoxBody {
     http_body_util::Full::new(Bytes::from(data)).boxed()
 }
 
-
 /// Reads HTTP/2 frames, dispatches to the appropriate RPC handler, and writes
 /// the response back. This implementation uses hyper's HTTP/2 server support.
 async fn handle_connection(
@@ -1281,7 +1336,8 @@ async fn handle_connection(
 
     let conn = builder.serve_connection(io, service_fn);
 
-    conn.await.map_err(|e| anyhow!("HTTP/2 connection error: {}", e))?;
+    conn.await
+        .map_err(|e| anyhow!("HTTP/2 connection error: {}", e))?;
 
     Ok(())
 }
@@ -1316,6 +1372,9 @@ mod tests {
 
     #[test]
     fn agent_kind_round_trip() {
-        assert_eq!(agent_kind_from_rust(&agent_kind_to_rust(AgentKind::Coder)), AgentKind::Coder);
+        assert_eq!(
+            agent_kind_from_rust(&agent_kind_to_rust(AgentKind::Coder)),
+            AgentKind::Coder
+        );
     }
 }

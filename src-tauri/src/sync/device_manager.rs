@@ -58,8 +58,9 @@ impl DeviceManager {
                     paired_at       INTEGER NOT NULL,
                     revoked         INTEGER NOT NULL DEFAULT 0,
                     revoked_at      INTEGER
-                );"
-            ).ok();
+                );",
+            )
+            .ok();
         }
         let mut mgr = Self {
             devices: HashMap::new(),
@@ -72,7 +73,9 @@ impl DeviceManager {
 
     fn load_from_db(&mut self) {
         let c = self.conn.lock();
-        let mut stmt = match c.prepare("SELECT device_id, public_key_b64, paired_at, revoked, revoked_at FROM paired_devices") {
+        let mut stmt = match c.prepare(
+            "SELECT device_id, public_key_b64, paired_at, revoked, revoked_at FROM paired_devices",
+        ) {
             Ok(s) => s,
             Err(_) => return,
         };
@@ -96,7 +99,7 @@ impl DeviceManager {
     }
 
     pub fn list_devices(&self) -> anyhow::Result<Vec<DeviceInfo>> {
-        Ok(self.devices.values().map(|d| DeviceInfo::from(d)).collect())
+        Ok(self.devices.values().map(DeviceInfo::from).collect())
     }
 
     pub fn register_device(&mut self, device_id: String, public_key_b64: String, paired_at: i64) {

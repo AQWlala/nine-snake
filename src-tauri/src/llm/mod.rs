@@ -14,6 +14,6 @@ pub mod ollama;
 // v1.1 P0-1: Anthropic Claude provider
 pub mod anthropic;
 
+pub use anthropic::{AnthropicClient, Role as AnthropicRole};
 pub use gateway::{LlmGateway, StreamToken};
 pub use ollama::{ChatMessage, ChatResponse, OllamaClient, Role};
-pub use anthropic::{AnthropicClient, Role as AnthropicRole};

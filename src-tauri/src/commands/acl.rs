@@ -18,7 +18,8 @@ pub async fn acl_set(
     let sqlite = state.sqlite.clone();
     tokio::task::spawn_blocking(move || {
         let id = uuid::Uuid::new_v4().to_string();
-        sqlite.insert_acl(&id, &principal, &resource, &permission, &effect)
+        sqlite
+            .insert_acl(&id, &principal, &resource, &permission, &effect)
             .map(|_| true)
             .map_err(|e| CommandError::db("acl_set", &e))
     })
@@ -33,7 +34,8 @@ pub async fn acl_list(
 ) -> Result<Vec<(String, String, String, String, String)>, CommandError> {
     let sqlite = state.sqlite.clone();
     tokio::task::spawn_blocking(move || {
-        sqlite.list_acl()
+        sqlite
+            .list_acl()
             .map_err(|e| CommandError::db("acl_list", &e))
     })
     .await
@@ -42,13 +44,11 @@ pub async fn acl_list(
 
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "acl_remove"))]
-pub async fn acl_remove(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<bool, CommandError> {
+pub async fn acl_remove(state: State<'_, AppState>, id: String) -> Result<bool, CommandError> {
     let sqlite = state.sqlite.clone();
     tokio::task::spawn_blocking(move || {
-        sqlite.remove_acl(&id)
+        sqlite
+            .remove_acl(&id)
             .map(|_| true)
             .map_err(|e| CommandError::db("acl_remove", &e))
     })

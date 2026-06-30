@@ -41,22 +41,24 @@ impl RestApiServer {
                 let (status, body) = match (method.as_str(), path.as_str()) {
                     ("GET", "/api/health") => (200, serde_json::json!({"status": "ok"})),
 
-                    ("GET", "/api/memories") => {
-                        match state.sqlite.list_recent(50).await {
-                            Ok(memories) => (200, serde_json::json!({"memories": memories})),
-                            Err(e) => (500, serde_json::json!({"error": e.to_string()})),
-                        }
-                    }
+                    ("GET", "/api/memories") => match state.sqlite.list_recent(50).await {
+                        Ok(memories) => (200, serde_json::json!({"memories": memories})),
+                        Err(e) => (500, serde_json::json!({"error": e.to_string()})),
+                    },
 
-                    ("GET", "/api/skills") => {
-                        match state.skills.list_skills(Default::default()) {
-                            Ok(skills) => (200, serde_json::json!({"skills": skills})),
-                            Err(e) => (500, serde_json::json!({"error": e.to_string()})),
-                        }
-                    }
+                    ("GET", "/api/skills") => match state.skills.list_skills(Default::default()) {
+                        Ok(skills) => (200, serde_json::json!({"skills": skills})),
+                        Err(e) => (500, serde_json::json!({"error": e.to_string()})),
+                    },
 
-                    ("POST", "/api/chat") => (200, serde_json::json!({"message": "use Tauri IPC for chat"})),
-                    ("POST", "/api/swarm/execute") => (200, serde_json::json!({"message": "use Tauri IPC for swarm"})),
+                    ("POST", "/api/chat") => (
+                        200,
+                        serde_json::json!({"message": "use Tauri IPC for chat"}),
+                    ),
+                    ("POST", "/api/swarm/execute") => (
+                        200,
+                        serde_json::json!({"message": "use Tauri IPC for swarm"}),
+                    ),
                     _ => (404, serde_json::json!({"error": "not found"})),
                 };
 

@@ -222,21 +222,18 @@ impl OutcomeLedger for SqliteOutcomeLedger {
              WHERE source = ?1 AND source_id = ?2
              ORDER BY created_at DESC LIMIT ?3",
         )?;
-        let rows = stmt.query_map(
-            params![source.as_str(), source_id, limit as i64],
-            |row| {
-                Ok(OutcomeRow {
-                    id: row.get(0)?,
-                    source_id: row.get(1)?,
-                    source: row.get(2)?,
-                    status: row.get(3)?,
-                    confidence: row.get(4)?,
-                    error: row.get(5)?,
-                    duration_ms: row.get::<_, i64>(6)? as u32,
-                    created_at: row.get(7)?,
-                })
-            },
-        )?;
+        let rows = stmt.query_map(params![source.as_str(), source_id, limit as i64], |row| {
+            Ok(OutcomeRow {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                source: row.get(2)?,
+                status: row.get(3)?,
+                confidence: row.get(4)?,
+                error: row.get(5)?,
+                duration_ms: row.get::<_, i64>(6)? as u32,
+                created_at: row.get(7)?,
+            })
+        })?;
         let mut out = Vec::new();
         for r in rows {
             let r = r?;

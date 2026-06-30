@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tracing::instrument;
 
+use crate::commands::error::CommandError;
 use crate::memory::MigrationStatus;
 use crate::metrics::MetricsSnapshot;
-use crate::commands::error::CommandError;
 use crate::AppState;
 
 /// v1.0: front-end handshake.  The store calls this on mount to
@@ -85,9 +85,7 @@ pub async fn metrics(state: State<'_, AppState>) -> Result<MetricsSnapshot, Comm
 /// v0.2: Tauri command — read the current migration status.
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "migration_status"))]
-pub async fn migration_status(
-    state: State<'_, AppState>,
-) -> Result<MigrationStatus, CommandError> {
+pub async fn migration_status(state: State<'_, AppState>) -> Result<MigrationStatus, CommandError> {
     let sqlite = state.sqlite.clone();
     let dir = crate::memory::migration::bundled_migrations_dir().to_path_buf();
     tokio::task::spawn_blocking(move || {
@@ -136,8 +134,7 @@ pub struct AppSettingsDto {
 }
 
 fn settings_path() -> std::path::PathBuf {
-    let base = std::env::var("NINE_SNAKE_DATA_DIR")
-        .unwrap_or_else(|_| ".".to_string());
+    let base = std::env::var("NINE_SNAKE_DATA_DIR").unwrap_or_else(|_| ".".to_string());
     std::path::PathBuf::from(base).join("settings.json")
 }
 
@@ -231,7 +228,11 @@ pub async fn get_api_key() -> Result<Option<MaskedApiKey>, CommandError> {
         let prefix_len = key.len().min(3);
         let suffix_len = key.len().min(3);
         let prefix = key[..prefix_len].to_string();
-        let suffix = if len > 6 { &key[len - suffix_len..] } else { "" };
+        let suffix = if len > 6 {
+            &key[len - suffix_len..]
+        } else {
+            ""
+        };
         let masked = if len > 6 {
             format!("{}****{}", &key[..prefix_len], suffix)
         } else if len > 0 {
@@ -239,7 +240,11 @@ pub async fn get_api_key() -> Result<Option<MaskedApiKey>, CommandError> {
         } else {
             String::new()
         };
-        MaskedApiKey { masked, length: len, prefix }
+        MaskedApiKey {
+            masked,
+            length: len,
+            prefix,
+        }
     }))
 }
 

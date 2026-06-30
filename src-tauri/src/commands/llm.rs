@@ -5,8 +5,8 @@ use tauri::State;
 use tracing::instrument;
 
 use crate::api::server::NineSnakeService;
-use crate::llm::ChatMessage;
 use crate::commands::error::CommandError;
+use crate::llm::ChatMessage;
 use crate::AppState;
 
 /// Tauri command: raw LLM completion.
@@ -64,10 +64,7 @@ pub struct LlmChatDto {
 /// v0.3: embed a single text.
 #[tauri::command]
 #[instrument(skip(state, text), fields(otel.kind = "llm_embed"))]
-pub async fn llm_embed(
-    state: State<'_, AppState>,
-    text: String,
-) -> Result<Vec<f32>, CommandError> {
+pub async fn llm_embed(state: State<'_, AppState>, text: String) -> Result<Vec<f32>, CommandError> {
     state
         .embedder
         .embed(&text)

@@ -56,7 +56,11 @@ impl Tool for ShellTool {
             Ok(o) => Ok(ToolOutput {
                 success: o.exit_code == 0,
                 result: o.stdout,
-                error: if o.exit_code != 0 { Some(o.stderr) } else { None },
+                error: if o.exit_code != 0 {
+                    Some(o.stderr)
+                } else {
+                    None
+                },
             }),
             Err(e) => Ok(ToolOutput {
                 success: false,

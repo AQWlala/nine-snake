@@ -3,16 +3,14 @@
 use tauri::State;
 use tracing::instrument;
 
-use crate::memory::reflect::Reflection;
 use crate::commands::error::CommandError;
+use crate::memory::reflect::Reflection;
 use crate::AppState;
 
 /// v0.2: Tauri command — trigger a single reflection pass manually.
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "reflect_now"))]
-pub async fn reflect_now(
-    state: State<'_, AppState>,
-) -> Result<Vec<Reflection>, CommandError> {
+pub async fn reflect_now(state: State<'_, AppState>) -> Result<Vec<Reflection>, CommandError> {
     let engine = state.reflection.clone();
     engine
         .reflect_now()

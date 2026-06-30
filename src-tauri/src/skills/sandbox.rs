@@ -199,9 +199,11 @@ impl CapabilitySet {
 /// 沙箱执行策略 — 控制技能如何被执行。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SandboxPolicy {
     /// 严格模式：仅允许通过声明式能力授权的操作。
     /// 缺少的能力调用将返回错误而非静默通过。
+    #[default]
     Strict,
     /// 宽松模式：允许能力列表之外的操作，但在日志中记录警告。
     /// 适用于用户信任的本地技能。
@@ -217,12 +219,6 @@ impl fmt::Display for SandboxPolicy {
             SandboxPolicy::Permissive => write!(f, "permissive"),
             SandboxPolicy::LlmOnly => write!(f, "llm_only"),
         }
-    }
-}
-
-impl Default for SandboxPolicy {
-    fn default() -> Self {
-        SandboxPolicy::Strict
     }
 }
 
@@ -327,21 +323,15 @@ mod wasm_sandbox {
             let mut linker = wasmtime::Linker::new(&engine);
 
             if config.capabilities.has(Capability::FileRead) {
-                linker.func_wrap("env", "file_read", |_path: i32| -> i32 {
-                    -1
-                })?;
+                linker.func_wrap("env", "file_read", |_path: i32| -> i32 { -1 })?;
             }
 
             if config.capabilities.has(Capability::FileWrite) {
-                linker.func_wrap("env", "file_write", |_path: i32, _data: i32| -> i32 {
-                    -1
-                })?;
+                linker.func_wrap("env", "file_write", |_path: i32, _data: i32| -> i32 { -1 })?;
             }
 
             if config.capabilities.has(Capability::Network) {
-                linker.func_wrap("env", "http_fetch", |_url: i32| -> i32 {
-                    -1
-                })?;
+                linker.func_wrap("env", "http_fetch", |_url: i32| -> i32 { -1 })?;
             }
 
             Ok(Self {
@@ -367,10 +357,13 @@ mod wasm_sandbox {
 
             store.set_fuel(self.max_fuel)?;
 
-            let instance = self.linker.instantiate(&mut store, &module)
+            let instance = self
+                .linker
+                .instantiate(&mut store, &module)
                 .map_err(|e| anyhow!("WASM instantiation failed: {e}"))?;
 
-            let func = instance.get_func(&mut store, func_name)
+            let func = instance
+                .get_func(&mut store, func_name)
                 .ok_or_else(|| anyhow!("exported function '{func_name}' not found"))?;
 
             let result = func.call(&mut store, &[], &mut []);
@@ -400,7 +393,11 @@ mod wasm_sandbox {
                         stdout: String::new(),
                         stderr: msg,
                         elapsed_ms,
-                        denied_capabilities: if out_of_fuel { vec![Capability::Subprocess] } else { vec![] },
+                        denied_capabilities: if out_of_fuel {
+                            vec![Capability::Subprocess]
+                        } else {
+                            vec![]
+                        },
                         policy: super::SandboxPolicy::Strict,
                     })
                 }

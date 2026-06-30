@@ -31,7 +31,16 @@ fn documents_memory_id_is_real_foreign_key() {
     let mut stmt = conn
         .prepare("PRAGMA foreign_key_list(documents)")
         .expect("prepare foreign_key_list");
-    let fks: Vec<(i64, i64, String, String, Option<String>, String, String, String)> = stmt
+    let fks: Vec<(
+        i64,
+        i64,
+        String,
+        String,
+        Option<String>,
+        String,
+        String,
+        String,
+    )> = stmt
         .query_map([], |r| {
             Ok((
                 r.get(0)?,
@@ -62,8 +71,7 @@ fn documents_memory_id_is_real_foreign_key() {
     // `foreign_key_list` (the "on_delete" action).
     let on_delete = &memory_fk.unwrap().6;
     assert_eq!(
-        on_delete,
-        "SET NULL",
+        on_delete, "SET NULL",
         "expected ON DELETE SET NULL, got {on_delete:?}"
     );
     drop(stmt);

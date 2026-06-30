@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tracing::warn;
 
-
 const BUS_CAPACITY: usize = 256;
 const BROADCAST_CAPACITY: usize = 512;
 
@@ -57,20 +56,35 @@ impl AgentBus {
     }
 
     pub async fn send(&self, message: BusMessage) -> Result<()> {
-        let target = message.to.as_deref().ok_or_else(|| anyhow!("message has no target"))?;
+        let target = message
+            .to
+            .as_deref()
+            .ok_or_else(|| anyhow!("message has no target"))?;
         let mailboxes = self.mailboxes.lock().await;
         let sender = mailboxes
             .get(target)
             .ok_or_else(|| anyhow!("agent '{target}' not found or not registered"))?;
-        sender.send(message).await.map_err(|e| anyhow!("send failed: {e}"))
+        sender
+            .send(message)
+            .await
+            .map_err(|e| anyhow!("send failed: {e}"))
     }
 
     /// Send a request to a specific agent and wait for a response.
     /// This enables P2P request-response communication between agents.
-    pub async fn request(&self, from: &str, to: &str, content: String, timeout: std::time::Duration) -> Result<BusMessage> {
+    pub async fn request(
+        &self,
+        from: &str,
+        to: &str,
+        content: String,
+        timeout: std::time::Duration,
+    ) -> Result<BusMessage> {
         let correlation_id = uuid::Uuid::new_v4().to_string();
         let (reply_tx, reply_rx) = oneshot::channel();
-        self.pending_replies.lock().await.insert(correlation_id.clone(), reply_tx);
+        self.pending_replies
+            .lock()
+            .await
+            .insert(correlation_id.clone(), reply_tx);
 
         let msg = BusMessage {
             from: from.to_string(),
@@ -93,7 +107,9 @@ impl AgentBus {
 
     /// Reply to a request using the correlation_id from the original message.
     pub async fn reply(&self, original: &BusMessage, content: String) -> Result<()> {
-        let correlation_id = original.correlation_id.as_deref()
+        let correlation_id = original
+            .correlation_id
+            .as_deref()
             .ok_or_else(|| anyhow!("cannot reply to a message without correlation_id"))?;
 
         let mut pending = self.pending_replies.lock().await;
@@ -109,7 +125,9 @@ impl AgentBus {
             let _ = reply_tx.send(response);
             Ok(())
         } else {
-            Err(anyhow!("no pending reply for correlation_id '{correlation_id}'"))
+            Err(anyhow!(
+                "no pending reply for correlation_id '{correlation_id}'"
+            ))
         }
     }
 
@@ -196,7 +214,15 @@ mod tests {
             bus_for_task.reply(&msg, "pong".to_string()).await.unwrap();
         });
 
-        let response = bus_clone.request("caller", "responder", "ping".to_string(), std::time::Duration::from_secs(5)).await.unwrap();
+        let response = bus_clone
+            .request(
+                "caller",
+                "responder",
+                "ping".to_string(),
+                std::time::Duration::from_secs(5),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.content, "pong");
         handle.await.unwrap();
     }

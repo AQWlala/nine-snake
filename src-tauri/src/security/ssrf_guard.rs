@@ -1,6 +1,5 @@
-use std::net::{IpAddr, Ipv4Addr};
 use anyhow::{anyhow, Result};
-
+use std::net::{IpAddr, Ipv4Addr};
 
 #[derive(Debug, Clone)]
 pub struct SsrfGuard {
@@ -139,7 +138,9 @@ mod tests {
     #[test]
     fn rejects_link_local_cloud_metadata() {
         let guard = SsrfGuard::new();
-        assert!(guard.validate_url("http://169.254.169.254/latest/meta-data/").is_err());
+        assert!(guard
+            .validate_url("http://169.254.169.254/latest/meta-data/")
+            .is_err());
     }
 
     #[test]

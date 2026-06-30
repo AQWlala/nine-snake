@@ -22,8 +22,6 @@ use tracing::debug;
 #[cfg(feature = "perf-telemetry")]
 use sysinfo::System;
 
-
-
 /// A single point-in-time performance sample.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerfSample {
@@ -98,7 +96,9 @@ impl PerfMonitor {
     pub fn start(period: Duration) -> MonitorHandle {
         let monitor = PerfMonitor::new();
         let abort = monitor.inner.abort.clone();
-        let handle = MonitorHandle { abort: abort.clone() };
+        let handle = MonitorHandle {
+            abort: abort.clone(),
+        };
         tokio::spawn(async move {
             run_loop(monitor, period, abort).await;
         });
@@ -129,7 +129,13 @@ async fn run_loop(monitor: PerfMonitor, period: Duration, abort: Arc<Mutex<bool>
             return;
         }
 
-        let sample = take_sample(&monitor, #[cfg(feature = "perf-telemetry")] &mut sys, #[cfg(feature = "perf-telemetry")] pid);
+        let sample = take_sample(
+            &monitor,
+            #[cfg(feature = "perf-telemetry")]
+            &mut sys,
+            #[cfg(feature = "perf-telemetry")]
+            pid,
+        );
         monitor.record(sample);
 
         tokio::time::sleep(period).await;
@@ -137,11 +143,7 @@ async fn run_loop(monitor: PerfMonitor, period: Duration, abort: Arc<Mutex<bool>
 }
 
 #[cfg(feature = "perf-telemetry")]
-fn take_sample(
-    _monitor: &PerfMonitor,
-    sys: &mut System,
-    pid: Option<sysinfo::Pid>,
-) -> PerfSample {
+fn take_sample(_monitor: &PerfMonitor, sys: &mut System, pid: Option<sysinfo::Pid>) -> PerfSample {
     if let Some(pid) = pid {
         sys.refresh_process(pid);
         if let Some(proc_) = sys.process(pid) {

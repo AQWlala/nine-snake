@@ -49,7 +49,12 @@ impl ChannelRouter {
         Ok(())
     }
 
-    pub async fn send(&self, kind: &ChannelKind, message: &str, reply_to: Option<&str>) -> Result<()> {
+    pub async fn send(
+        &self,
+        kind: &ChannelKind,
+        message: &str,
+        reply_to: Option<&str>,
+    ) -> Result<()> {
         let adapters = self.adapters.lock();
         let adapter = adapters
             .get(kind)
@@ -67,7 +72,10 @@ impl ChannelRouter {
 
     pub fn list_channels(&self) -> Vec<(ChannelKind, ChannelStatus)> {
         let adapters = self.adapters.lock();
-        adapters.iter().map(|(k, a)| (k.clone(), a.status())).collect()
+        adapters
+            .iter()
+            .map(|(k, a)| (k.clone(), a.status()))
+            .collect()
     }
 }
 
@@ -79,6 +87,12 @@ impl Default for ChannelRouter {
 
 pub struct WebChatAdapter {
     status: ChannelStatus,
+}
+
+impl Default for WebChatAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WebChatAdapter {
@@ -222,6 +236,9 @@ mod tests {
     #[test]
     fn status_offline_for_unregistered() {
         let router = ChannelRouter::new();
-        assert_eq!(router.status(&ChannelKind::Telegram), ChannelStatus::Offline);
+        assert_eq!(
+            router.status(&ChannelKind::Telegram),
+            ChannelStatus::Offline
+        );
     }
 }

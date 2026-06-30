@@ -18,7 +18,11 @@ fn template_library_is_not_empty() {
     let tmp = TmpStore::new();
     let eng = engine(&tmp);
     let lib = eng.list_templates();
-    assert!(lib.len() >= 6, "expected at least 6 templates, got {}", lib.len());
+    assert!(
+        lib.len() >= 6,
+        "expected at least 6 templates, got {}",
+        lib.len()
+    );
     // Tech blog is part of the v0.5 library.
     assert!(lib.iter().any(|t| t.id == "tech-blog"));
 }
@@ -31,9 +35,7 @@ fn apply_template_substitutes_placeholders() {
     values.insert("title".to_string(), "Hello".to_string());
     values.insert("summary".to_string(), "A short summary".to_string());
     values.insert("background".to_string(), "background text".to_string());
-    let (title, body) = eng
-        .apply_template("tech-blog", &values)
-        .expect("apply");
+    let (title, body) = eng.apply_template("tech-blog", &values).expect("apply");
     assert_eq!(title, "Hello");
     assert!(body.contains("Hello"));
     assert!(!body.contains("{{title}}"));
@@ -102,7 +104,12 @@ fn export_html_is_a_full_document() {
     let tmp = TmpStore::new();
     let eng = engine(&tmp);
     let doc = eng
-        .create_document("Hi".into(), "blank".into(), "# Heading\n\nParagraph".into(), None)
+        .create_document(
+            "Hi".into(),
+            "blank".into(),
+            "# Heading\n\nParagraph".into(),
+            None,
+        )
         .expect("create");
     let exp = eng.export(&doc.id, ExportFormat::Html).expect("export");
     assert!(exp.body.starts_with("<!doctype html>"));

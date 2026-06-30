@@ -39,8 +39,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use super::ollama::{ChatMessage, ChatResponse, OllamaClient};
 use super::anthropic::AnthropicClient;
+use super::ollama::{ChatMessage, ChatResponse, OllamaClient};
 use crate::security::SsrfGuard;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,7 +119,7 @@ impl CircuitBreaker {
         let s = self.state.load(Ordering::Acquire);
         if s == CB_OPEN {
             // Check whether the open window has elapsed.
-            let opened = self.opened_at.lock().clone();
+            let opened = *self.opened_at.lock();
             if let Some(t) = opened {
                 if t.elapsed() >= self.open_duration {
                     // Try to transition Open→HalfOpen.  We use
@@ -292,13 +292,15 @@ impl LlmGateway {
         // v1.1 P0-1: Anthropic fallback, enabled when API key is provided.
         let anthropic = anthropic_api_key.map(|key| {
             let model = anthropic_model.unwrap_or_else(|| "claude-3-5-haiku-20241022".to_string());
-            AnthropicFallback { client: AnthropicClient::new(key, model, None) }
+            AnthropicFallback {
+                client: AnthropicClient::new(key, model, None),
+            }
         });
 
         // v1.0 P0#7: LRU cache, not FIFO.  `CACHE_CAPACITY` is
         // always > 0 so the `NonZeroUsize::new` cannot fail.
-        let cap = NonZeroUsize::new(CACHE_CAPACITY.max(1))
-            .expect("CACHE_CAPACITY must be non-zero");
+        let cap =
+            NonZeroUsize::new(CACHE_CAPACITY.max(1)).expect("CACHE_CAPACITY must be non-zero");
         Self {
             primary,
             default_model: default_model.into(),
@@ -361,7 +363,10 @@ impl LlmGateway {
                 // v1.1 P0-1: Anthropic Claude is the third fallback
                 // after Ollama → Remote.
                 if let Some(remote) = &self.remote {
-                    match self.call_remote(remote, &self.default_model, &messages).await {
+                    match self
+                        .call_remote(remote, &self.default_model, &messages)
+                        .await
+                    {
                         Ok(resp) => {
                             self.breaker.record_success();
                             self.store_cache(key, resp.clone());
@@ -393,16 +398,14 @@ impl LlmGateway {
                                             "Anthropic fallback also failed"
                                         );
                                         self.breaker.record_failure();
-                                        return Err(anthropic_err).context(
-                                            "ollama, remote, and anthropic all failed",
-                                        );
+                                        return Err(anthropic_err)
+                                            .context("ollama, remote, and anthropic all failed");
                                     }
                                 }
                             }
                             self.breaker.record_failure();
-                            return Err(remote_err).context(
-                                "local ollama and remote fallback both failed",
-                            );
+                            return Err(remote_err)
+                                .context("local ollama and remote fallback both failed");
                         }
                     }
                 }
@@ -413,7 +416,11 @@ impl LlmGateway {
     }
 
     /// Chat with an explicit model override (skips the cache).
-    pub async fn chat_with_model(&self, model: &str, messages: Vec<ChatMessage>) -> anyhow::Result<ChatResponse> {
+    pub async fn chat_with_model(
+        &self,
+        model: &str,
+        messages: Vec<ChatMessage>,
+    ) -> anyhow::Result<ChatResponse> {
         self.primary.chat(model, &messages).await
     }
 
@@ -534,10 +541,15 @@ impl LlmGateway {
     ) -> anyhow::Result<ChatResponse> {
         let url = format!("{}/v1/chat/completions", remote.base_url);
         let ssrf_guard = SsrfGuard::new();
-        ssrf_guard.validate_url(&url).map_err(|e| anyhow::anyhow!("SSRF validation failed: {e}"))?;
+        ssrf_guard
+            .validate_url(&url)
+            .map_err(|e| anyhow::anyhow!("SSRF validation failed: {e}"))?;
         let payload_msgs: Vec<RemoteMessage<'_>> = messages
             .iter()
-            .map(|m| RemoteMessage { role: &m.role, content: &m.content })
+            .map(|m| RemoteMessage {
+                role: &m.role,
+                content: &m.content,
+            })
             .collect();
         let body = RemoteChatRequest {
             model,
@@ -581,7 +593,10 @@ impl LlmGateway {
                     "assistant" => super::anthropic::Role::Assistant,
                     _ => super::anthropic::Role::User,
                 };
-                Am { role, content: m.content.clone() }
+                Am {
+                    role,
+                    content: m.content.clone(),
+                }
             })
             .collect();
         anthropic.client.chat(&anthropic_messages).await
@@ -802,8 +817,14 @@ mod tests {
                 inserted_at: std::time::Instant::now(),
             },
         );
-        assert!(cache.get(&0).is_some(), "key 0 must still be present (touched)");
-        assert!(cache.get(&1).is_none(), "key 1 must have been evicted as LRU");
+        assert!(
+            cache.get(&0).is_some(),
+            "key 0 must still be present (touched)"
+        );
+        assert!(
+            cache.get(&1).is_none(),
+            "key 1 must have been evicted as LRU"
+        );
         assert!(cache.get(&2).is_some());
         assert!(cache.get(&3).is_some());
         assert!(cache.get(&4).is_some());
@@ -817,20 +838,29 @@ mod tests {
     fn store_cache_evicts_when_full() {
         let cap = NonZeroUsize::new(2).unwrap();
         let mut cache: LruCache<u64, CacheEntry> = LruCache::new(cap);
-        cache.put(1, CacheEntry {
-            response: dummy_response("a"),
-            inserted_at: std::time::Instant::now(),
-        });
-        cache.put(2, CacheEntry {
-            response: dummy_response("b"),
-            inserted_at: std::time::Instant::now(),
-        });
+        cache.put(
+            1,
+            CacheEntry {
+                response: dummy_response("a"),
+                inserted_at: std::time::Instant::now(),
+            },
+        );
+        cache.put(
+            2,
+            CacheEntry {
+                response: dummy_response("b"),
+                inserted_at: std::time::Instant::now(),
+            },
+        );
         // Touch 1 so 2 becomes LRU.
         let _ = cache.get(&1);
-        cache.put(3, CacheEntry {
-            response: dummy_response("c"),
-            inserted_at: std::time::Instant::now(),
-        });
+        cache.put(
+            3,
+            CacheEntry {
+                response: dummy_response("c"),
+                inserted_at: std::time::Instant::now(),
+            },
+        );
         assert!(cache.get(&1).is_some(), "1 was touched; should survive");
         assert!(cache.get(&2).is_none(), "2 was LRU; should be evicted");
         assert!(cache.get(&3).is_some());
@@ -874,8 +904,14 @@ mod tests {
         // The LRU was key=1 (oldest-untouched); the FIFO bug
         // would have evicted key=0 instead.  P0#7 fix: key=0
         // survives because it was touched.
-        assert!(cache.get(&0).is_some(), "touched key 0 must survive (LRU fix)");
-        assert!(cache.get(&1).is_none(), "untouched key 1 is LRU and must be evicted");
+        assert!(
+            cache.get(&0).is_some(),
+            "touched key 0 must survive (LRU fix)"
+        );
+        assert!(
+            cache.get(&1).is_none(),
+            "untouched key 1 is LRU and must be evicted"
+        );
         assert!(cache.get(&2).is_some());
         assert!(cache.get(&3).is_some());
     }

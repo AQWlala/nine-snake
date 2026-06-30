@@ -1,8 +1,8 @@
 //! Channel data types — v1.2 → v2.0
 
-use serde::{Deserialize, Serialize};
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 
 /// Supported delivery channels (mirrors JiuwenSwarm's channel set).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]

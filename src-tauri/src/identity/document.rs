@@ -61,7 +61,10 @@ mod tests {
         assert_eq!(doc.key_agreement.len(), 1);
         assert!(doc.key_agreement[0].ends_with("#key-1"));
         assert_eq!(doc.verification_method.len(), 1);
-        assert_eq!(doc.verification_method[0].vm_type, "X25519KeyAgreementKey2020");
+        assert_eq!(
+            doc.verification_method[0].vm_type,
+            "X25519KeyAgreementKey2020"
+        );
     }
 
     #[test]

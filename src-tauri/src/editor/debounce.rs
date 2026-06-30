@@ -113,7 +113,9 @@ mod tests {
             tx.send(FileEvent {
                 kind: "modify".into(),
                 paths: vec![format!("a/{i}")],
-            }).await.unwrap();
+            })
+            .await
+            .unwrap();
         }
         drop(tx);
 

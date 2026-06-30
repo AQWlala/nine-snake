@@ -19,13 +19,13 @@ use std::sync::Arc;
 use anyhow::Result;
 use tracing::{debug, info};
 
+use super::constants::BLACKHOLE_IMPORTANCE_FLOOR;
 use super::importance::{rescore, ImportanceScorer};
 use super::lance_store::LanceStore;
 use super::sqlite_store::SqliteStore;
 use super::types::{
     Memory, MemoryLayer, MemoryRelation, MultiGranularity, RelationKind, SourceKind,
 };
-use super::constants::BLACKHOLE_IMPORTANCE_FLOOR;
 
 /// Result of a single compression pass.
 #[derive(Debug, Clone, Default)]
@@ -85,7 +85,8 @@ impl BlackholeEngine {
         let threshold_secs = (self.threshold_days as i64) * 24 * 3600;
         let candidates = self
             .sqlite
-            .candidates_for_compression(threshold_secs, BLACKHOLE_IMPORTANCE_FLOOR, batch_size).await?;
+            .candidates_for_compression(threshold_secs, BLACKHOLE_IMPORTANCE_FLOOR, batch_size)
+            .await?;
 
         let mut report = CompressionReport {
             scanned: candidates.len(),
@@ -152,7 +153,11 @@ impl BlackholeEngine {
             .collect::<Vec<_>>()
             .join("\n---\n");
         let combined_content = if combined_content.is_empty() {
-            group.iter().map(|m| m.content.as_str()).collect::<Vec<_>>().join("\n---\n")
+            group
+                .iter()
+                .map(|m| m.content.as_str())
+                .collect::<Vec<_>>()
+                .join("\n---\n")
         } else {
             combined_content
         };
@@ -178,7 +183,8 @@ impl BlackholeEngine {
         let honest_ratio = ratio.max(1.0).min(10.0);
 
         let now = chrono::Utc::now().timestamp();
-        let mut summary_mem = Memory::new(mtype, layer, combined_content.clone(), SourceKind::System);
+        let mut summary_mem =
+            Memory::new(mtype, layer, combined_content.clone(), SourceKind::System);
         summary_mem.summary = summary;
         summary_mem.compression_gen = 1;
         summary_mem.importance = 0.3; // freshly compressed; will be re-scored
@@ -204,20 +210,33 @@ impl BlackholeEngine {
         // For each source, attach a `derived_from` relation pointing at
         // the new summary; the originals remain untouched.
         for m in group {
-            let rel = MemoryRelation::new(m.id.clone(), summary_mem.id.clone(), RelationKind::DerivedFrom);
+            let rel = MemoryRelation::new(
+                m.id.clone(),
+                summary_mem.id.clone(),
+                RelationKind::DerivedFrom,
+            );
             self.sqlite.add_relation(&rel).await?;
             // Mark the source row as "absorbed by this summary" so that
             // subsequent reads (get_many, list_recent, list_by_layer,
             // search) skip it. The original row is *not* deleted; the
             // black-hole contract is density-preserving compression.
-            if let Err(e) = self.sqlite.update_compressed_from(&m.id, &summary_mem.id).await {
+            if let Err(e) = self
+                .sqlite
+                .update_compressed_from(&m.id, &summary_mem.id)
+                .await
+            {
                 tracing::warn!(target: "nine_snake.blackhole", src = %m.id, error = ?e, "failed to mark source as compressed");
             }
         }
 
         // Update the summary's embedding (averaged from sources) so the
         // vector store can still find it.
-        let avg = average_embedding(&group.iter().map(|m| m.embedding.clone()).collect::<Vec<_>>());
+        let avg = average_embedding(
+            &group
+                .iter()
+                .map(|m| m.embedding.clone())
+                .collect::<Vec<_>>(),
+        );
         if avg.len() == self.lance.dim() {
             self.lance.upsert(&summary_mem.id, &avg).await?;
         }
@@ -227,7 +246,9 @@ impl BlackholeEngine {
 }
 
 /// Groups candidate memories by (layer, memory_type) for compression.
-fn group_candidates(candidates: Vec<Memory>) -> std::collections::HashMap<(MemoryLayer, super::types::MemoryType), Vec<Memory>> {
+fn group_candidates(
+    candidates: Vec<Memory>,
+) -> std::collections::HashMap<(MemoryLayer, super::types::MemoryType), Vec<Memory>> {
     let mut out: std::collections::HashMap<(MemoryLayer, super::types::MemoryType), Vec<Memory>> =
         std::collections::HashMap::new();
     for m in candidates {
@@ -346,10 +367,8 @@ mod tests {
         // Build a tiny in-memory store just to access the lock.
         // We don't actually need a populated DB; we're testing
         // lock semantics.
-        let tmp = std::env::temp_dir().join(format!(
-            "nine_snake_lock_test_{}.db",
-            std::process::id()
-        ));
+        let tmp =
+            std::env::temp_dir().join(format!("nine_snake_lock_test_{}.db", std::process::id()));
         let _ = std::fs::remove_file(&tmp);
         let store = Arc::new(SqliteStore::open(&tmp).unwrap());
         let store2 = store.clone();

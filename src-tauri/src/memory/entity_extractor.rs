@@ -2,8 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::llm::{ChatMessage, LlmGateway};
 use super::types::RelationKind;
+use crate::llm::{ChatMessage, LlmGateway};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtractedRelation {

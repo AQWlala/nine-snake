@@ -13,7 +13,8 @@ pub async fn list_devices(
 ) -> Result<Vec<crate::sync::device_manager::DeviceInfo>, CommandError> {
     let dm = state.device_manager.clone();
     tokio::task::spawn_blocking(move || {
-        dm.lock().list_devices()
+        dm.lock()
+            .list_devices()
             .map_err(|e| CommandError::internal("list_devices", &e))
     })
     .await

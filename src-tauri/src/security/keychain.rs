@@ -48,8 +48,8 @@ pub const KEY_API_KEY: &str = "openai_api_key";
 /// `set_api_key` over the Tauri IPC, never the WebView's
 /// persistent storage.
 pub fn set(key: &str, value: &str) -> Result<()> {
-    let entry = Entry::new(SERVICE, key)
-        .with_context(|| format!("opening keychain entry for {key}"))?;
+    let entry =
+        Entry::new(SERVICE, key).with_context(|| format!("opening keychain entry for {key}"))?;
     entry
         .set_password(value)
         .with_context(|| format!("writing keychain entry for {key}"))?;
@@ -61,8 +61,8 @@ pub fn set(key: &str, value: &str) -> Result<()> {
 /// does not exist.  Returns `Err` only for OS-level errors
 /// (e.g. the keychain is locked, the user denied access).
 pub fn get(key: &str) -> Result<Option<String>> {
-    let entry = Entry::new(SERVICE, key)
-        .with_context(|| format!("opening keychain entry for {key}"))?;
+    let entry =
+        Entry::new(SERVICE, key).with_context(|| format!("opening keychain entry for {key}"))?;
     match entry.get_password() {
         Ok(v) => Ok(Some(v)),
         Err(keyring::Error::NoEntry) => Ok(None),
@@ -77,8 +77,8 @@ pub fn get(key: &str) -> Result<Option<String>> {
 /// entry is treated as success so the front-end's "reset" button
 /// doesn't have to special-case "not configured".
 pub fn delete(key: &str) -> Result<()> {
-    let entry = Entry::new(SERVICE, key)
-        .with_context(|| format!("opening keychain entry for {key}"))?;
+    let entry =
+        Entry::new(SERVICE, key).with_context(|| format!("opening keychain entry for {key}"))?;
     match entry.delete_credential() {
         Ok(()) => {
             debug!(target: "nine_snake.security", key, "keychain delete");

@@ -22,7 +22,10 @@ fn bootstrap_health_check() {
     let v: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert!(v >= 2, "user_version must be ≥ 2 after run_migrations, got {v}");
+    assert!(
+        v >= 2,
+        "user_version must be ≥ 2 after run_migrations, got {v}"
+    );
 
     let has_reflections: i64 = conn
         .query_row(

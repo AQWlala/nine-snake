@@ -34,7 +34,8 @@ pub struct TeamSkillsHubClient {
 impl TeamSkillsHubClient {
     pub fn new(base_url: &str) -> Self {
         let guard = SsrfGuard::new();
-        guard.validate_url(base_url)
+        guard
+            .validate_url(base_url)
             .expect("TeamSkillsHub URL failed SSRF validation");
         Self {
             client: Client::new(),
@@ -43,7 +44,10 @@ impl TeamSkillsHubClient {
     }
 
     pub async fn search(&self, query: &str, limit: u32) -> Result<Vec<HubSkillSummary>> {
-        let url = format!("{}/api/skills/search?q={}&limit={}", self.base_url, query, limit);
+        let url = format!(
+            "{}/api/skills/search?q={}&limit={}",
+            self.base_url, query, limit
+        );
         let guard = SsrfGuard::new();
         guard.validate_url(&url)?;
         info!(target: "nine_snake.hub", query = %query, "searching TeamSkillsHub");

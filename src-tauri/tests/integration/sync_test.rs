@@ -7,7 +7,9 @@
 //! identity, derive a shared session key, encrypt a message, drop
 //! it into the inbox, and the receiver decrypts it.
 
-use nine_snake_lib::sync::{recv_all_unsealed, send_sealed, E2eeIdentity, EncryptedEnvelope, LocalTransport, Pair};
+use nine_snake_lib::sync::{
+    recv_all_unsealed, send_sealed, E2eeIdentity, EncryptedEnvelope, LocalTransport, Pair,
+};
 
 #[test]
 fn x25519_identities_have_32_byte_keys() {
@@ -15,9 +17,10 @@ fn x25519_identities_have_32_byte_keys() {
     let pk = id.public_key_b64();
     // secret_bytes() is pub(crate), not accessible from integration tests
     use base64::Engine as _;
-    let pk_bytes = base64::engine::general_purpose::STANDARD.decode(&pk).unwrap();
+    let pk_bytes = base64::engine::general_purpose::STANDARD
+        .decode(&pk)
+        .unwrap();
     assert_eq!(pk_bytes.len(), 32);
-
 }
 
 #[test]

@@ -135,8 +135,7 @@ impl DataExporter {
             "manifest": manifest,
         });
 
-        let json = serde_json::to_string_pretty(&output)
-            .context("serializing JSON-LD export")?;
+        let json = serde_json::to_string_pretty(&output).context("serializing JSON-LD export")?;
         std::fs::write(path, json.as_bytes())
             .with_context(|| format!("writing export to {}", path.display()))?;
 
@@ -154,8 +153,8 @@ impl DataExporter {
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("reading import file {}", path.display()))?;
 
-        let parsed: serde_json::Value = serde_json::from_str(&content)
-            .with_context(|| "parsing JSON-LD import file")?;
+        let parsed: serde_json::Value =
+            serde_json::from_str(&content).with_context(|| "parsing JSON-LD import file")?;
 
         let items = parsed
             .get("items")
@@ -236,10 +235,7 @@ impl DataExporter {
                     .unwrap_or(0.5),
                 access_count: 0,
                 last_access: 0,
-                created_at: item
-                    .get("created_at")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(0),
+                created_at: item.get("created_at").and_then(|v| v.as_i64()).unwrap_or(0),
                 source: item
                     .get("source")
                     .and_then(|v| v.as_str())

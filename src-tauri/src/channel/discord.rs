@@ -40,7 +40,12 @@ impl DiscordBotAdapter {
             content: content.to_string(),
             username: username.map(|s| s.to_string()),
         };
-        let resp = self.client.post(&self.webhook_url).json(&payload).send().await?;
+        let resp = self
+            .client
+            .post(&self.webhook_url)
+            .json(&payload)
+            .send()
+            .await?;
         if resp.status().as_u16() == 429 {
             *self.status.lock() = ChannelStatus::RateLimited;
             warn!(target: "nine_snake.discord", "rate limited by Discord API");

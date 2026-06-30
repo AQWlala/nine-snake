@@ -25,7 +25,9 @@ pub type Bytes = Vec<u8>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Default)]
 pub enum MemoryLayer {
+    #[default]
     Unspecified = 0,
     L0 = 1,
     L1 = 2,
@@ -37,13 +39,11 @@ pub enum MemoryLayer {
     L7 = 8,
 }
 
-impl Default for MemoryLayer {
-    fn default() -> Self { MemoryLayer::Unspecified }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Default)]
 pub enum MemoryType {
+    #[default]
     Unspecified = 0,
     Semantic = 1,
     Episodic = 2,
@@ -52,21 +52,15 @@ pub enum MemoryType {
     Metacognitive = 5,
 }
 
-impl Default for MemoryType {
-    fn default() -> Self { MemoryType::Unspecified }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Default)]
 pub enum AgentKind {
+    #[default]
     Unspecified = 0,
     Coder = 1,
     Writer = 2,
     Reviewer = 3,
-}
-
-impl Default for AgentKind {
-    fn default() -> Self { AgentKind::Unspecified }
 }
 
 // ---------------------------------------------------------------------------

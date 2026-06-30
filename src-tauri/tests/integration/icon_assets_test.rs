@@ -15,7 +15,9 @@ use std::fs;
 use std::path::PathBuf;
 
 fn icon_path(rel: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons").join(rel)
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("icons")
+        .join(rel)
 }
 
 #[test]

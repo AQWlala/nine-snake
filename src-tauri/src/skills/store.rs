@@ -44,7 +44,9 @@ impl SkillStore {
                 .map(|n| n > 0)
                 .unwrap_or(false);
             if !present {
-                return Err(anyhow!("skills table not initialised; run migrations first"));
+                return Err(anyhow!(
+                    "skills table not initialised; run migrations first"
+                ));
             }
         }
         Ok(Self { conn })
@@ -70,9 +72,13 @@ impl SkillStore {
     pub fn insert(&self, s: &Skill) -> Result<()> {
         let now = chrono::Utc::now().timestamp();
         let tags_json = serde_json::to_string(&s.tags).unwrap_or_else(|_| "[]".to_string());
-        let activation_json = s.activation_condition.as_ref()
+        let activation_json = s
+            .activation_condition
+            .as_ref()
             .map(|a| serde_json::to_string(a).unwrap_or_default());
-        let platform_json = s.platform.as_ref()
+        let platform_json = s
+            .platform
+            .as_ref()
             .map(|p| serde_json::to_string(p).unwrap_or_default());
         let g = self.conn.lock();
         // FK integrity: skills.memory_id REFERENCES memories(id).
@@ -269,9 +275,11 @@ fn row_to_skill(row: &Row<'_>) -> rusqlite::Result<Skill> {
     let tags: Vec<String> = serde_json::from_str(&tags_s).unwrap_or_default();
     let updated_at: i64 = row.get(10)?;
     let source_memory_id: Option<String> = row.get(11)?;
-    let activation_condition: Option<super::types::ActivationCondition> = row.get::<_, Option<String>>(12)?
+    let activation_condition: Option<super::types::ActivationCondition> = row
+        .get::<_, Option<String>>(12)?
         .and_then(|s| serde_json::from_str(&s).ok());
-    let platform: Option<Vec<String>> = row.get::<_, Option<String>>(13)?
+    let platform: Option<Vec<String>> = row
+        .get::<_, Option<String>>(13)?
         .and_then(|s| serde_json::from_str(&s).ok());
     let min_confidence: Option<f32> = row.get(14)?;
     Ok(Skill {
@@ -281,11 +289,19 @@ fn row_to_skill(row: &Row<'_>) -> rusqlite::Result<Skill> {
         code: row.get(3)?,
         language: row.get(4)?,
         tags,
-        usage_count: row.get::<_, u32>(6).or_else(|_| row.get::<_, i64>(6).map(|v| v as u32))?,
+        usage_count: row
+            .get::<_, u32>(6)
+            .or_else(|_| row.get::<_, i64>(6).map(|v| v as u32))?,
         avg_rating: row.get(7)?,
-        rating_count: row.get::<_, u32>(8).or_else(|_| row.get::<_, i64>(8).map(|v| v as u32))?,
+        rating_count: row
+            .get::<_, u32>(8)
+            .or_else(|_| row.get::<_, i64>(8).map(|v| v as u32))?,
         created_at: row.get(9)?,
-        updated_at: if updated_at == 0 { row.get(9)? } else { updated_at },
+        updated_at: if updated_at == 0 {
+            row.get(9)?
+        } else {
+            updated_at
+        },
         source_memory_id,
         activation_condition,
         platform,
@@ -318,7 +334,8 @@ mod tests {
             id: "sk-1".to_string(),
             name: "palindrome".to_string(),
             description: "checks if a string is a palindrome".to_string(),
-            code: "fn is_pal(s: &str) -> bool { s.chars().rev().collect::<String>() == s }".to_string(),
+            code: "fn is_pal(s: &str) -> bool { s.chars().rev().collect::<String>() == s }"
+                .to_string(),
             language: "rust".to_string(),
             tags: vec!["string".to_string(), "utility".to_string()],
             usage_count: 0,

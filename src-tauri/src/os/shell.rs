@@ -132,7 +132,6 @@ pub fn default_whitelist() -> Vec<WhitelistEntry> {
         WhitelistEntry::Exact("git".into()),
         WhitelistEntry::Exact("touch".into()),
         WhitelistEntry::Exact("mkdir".into()),
-
         WhitelistEntry::Exact("stat".into()),
         WhitelistEntry::Exact("du".into()),
         WhitelistEntry::Exact("df".into()),
@@ -198,10 +197,7 @@ impl ShellExecutor {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        let argv_vec: Vec<String> = argv
-            .into_iter()
-            .map(|s| s.as_ref().to_string())
-            .collect();
+        let argv_vec: Vec<String> = argv.into_iter().map(|s| s.as_ref().to_string()).collect();
         if argv_vec.is_empty() {
             return Err(anyhow!("empty argv"));
         }
@@ -209,7 +205,10 @@ impl ShellExecutor {
         if !self.is_allowed(prog) {
             return Err(anyhow!(
                 "binary not in whitelist: {prog}; allowed: {:?}",
-                self.whitelist.iter().map(|e| e.display()).collect::<Vec<_>>()
+                self.whitelist
+                    .iter()
+                    .map(|e| e.display())
+                    .collect::<Vec<_>>()
             ));
         }
         // Defensive: forbid argv elements that contain null bytes —
@@ -440,10 +439,7 @@ mod tests {
     #[tokio::test]
     async fn shell_timeout_kills_long_running() {
         // Probe for `sleep` on PATH.
-        let probe = TokioCommand::new("sleep")
-            .arg("0")
-            .output()
-            .await;
+        let probe = TokioCommand::new("sleep").arg("0").output().await;
         if probe.is_err() {
             // sleep missing; this is the canonical Windows test
             // runner case.  Use `python` (more reliably present)

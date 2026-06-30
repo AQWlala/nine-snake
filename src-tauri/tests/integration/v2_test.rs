@@ -1,18 +1,18 @@
-use nine_snake_lib::memory::acl::{AclEffect, AclPermission, MemoryAcl, AclRule};
+use nine_snake_lib::channel::router::WebChatAdapter;
+use nine_snake_lib::channel::ChannelRouter;
+use nine_snake_lib::channel::WebChatService;
+use nine_snake_lib::identity::{DidDocument, DidKey};
+use nine_snake_lib::memory::acl::{AclEffect, AclPermission, AclRule, MemoryAcl};
 use nine_snake_lib::memory::forgetting::{ForgettingConfig, ForgettingEngine};
 use nine_snake_lib::memory::layers::check_auto_promote;
 use nine_snake_lib::memory::types::{Memory, MemoryLayer, MemoryType, SourceKind};
 use nine_snake_lib::security::ssrf_guard::SsrfGuard;
+use nine_snake_lib::skills::audit;
 use nine_snake_lib::swarm::bus::AgentBus;
 use nine_snake_lib::swarm::negotiator::Negotiator;
-use nine_snake_lib::identity::{DidKey, DidDocument};
 use nine_snake_lib::sync::crdt::CrdtEngine;
 use nine_snake_lib::sync::device_manager::DeviceManager;
 use std::sync::Arc;
-use nine_snake_lib::skills::audit;
-use nine_snake_lib::channel::ChannelRouter;
-use nine_snake_lib::channel::router::WebChatAdapter;
-use nine_snake_lib::channel::WebChatService;
 
 #[test]
 #[ignore = "requires SQLite + LanceDB runtime"]
@@ -24,7 +24,9 @@ fn test_ssrf_guard_rejects_private_ips() {
     assert!(guard.validate_url("http://192.168.1.1/api").is_err());
     assert!(guard.validate_url("http://127.0.0.1/api").is_err());
     assert!(guard.validate_url("http://10.0.0.1/api").is_err());
-    assert!(guard.validate_url("http://169.254.169.254/metadata").is_err());
+    assert!(guard
+        .validate_url("http://169.254.169.254/metadata")
+        .is_err());
 }
 
 #[test]
@@ -63,7 +65,9 @@ fn test_agent_bus_point_to_point() {
             timestamp: 0,
             msg_type: nine_snake_lib::swarm::bus::BusMessageType::Request,
             correlation_id: None,
-        }).await.unwrap();
+        })
+        .await
+        .unwrap();
         let msg = rx.recv().await.unwrap();
         assert_eq!(msg.content, "ping");
     });
@@ -99,7 +103,12 @@ fn test_memory_acl_default_allow() {
 #[test]
 fn test_memory_acl_deny() {
     let mut acl = MemoryAcl::new();
-    acl.add_rule(AclRule { principal: "user1".into(), resource: "mem1".into(), permission: AclPermission::Read, effect: AclEffect::Deny });
+    acl.add_rule(AclRule {
+        principal: "user1".into(),
+        resource: "mem1".into(),
+        permission: AclPermission::Read,
+        effect: AclEffect::Deny,
+    });
     assert!(!acl.check("user1", "mem1", AclPermission::Read));
 }
 
@@ -195,7 +204,16 @@ fn test_forgetting_engine_marks_low_importance() {
         archived: false,
         embedding: vec![],
     };
-    let candidates = engine.scan_for_archive(vec![(mem.id.clone(), mem.layer, mem.importance, mem.last_access, mem.pinned)], 0);
+    let candidates = engine.scan_for_archive(
+        vec![(
+            mem.id.clone(),
+            mem.layer,
+            mem.importance,
+            mem.last_access,
+            mem.pinned,
+        )],
+        0,
+    );
     assert!(!candidates.is_empty());
 }
 
@@ -220,7 +238,16 @@ fn test_forgetting_engine_pinned_never() {
         archived: false,
         embedding: vec![],
     };
-    let candidates = engine.scan_for_archive(vec![(mem.id.clone(), mem.layer, mem.importance, mem.last_access, mem.pinned)], 0);
+    let candidates = engine.scan_for_archive(
+        vec![(
+            mem.id.clone(),
+            mem.layer,
+            mem.importance,
+            mem.last_access,
+            mem.pinned,
+        )],
+        0,
+    );
     assert!(candidates.is_empty());
 }
 
@@ -276,9 +303,7 @@ fn test_device_manager_revoke() {
 
 #[test]
 fn test_skill_audit_redaction() {
-    let redacted = audit::redact_if_sensitive(
-        "key=sk-abc123def456ghi789jkl012mno345pqr678"
-    );
+    let redacted = audit::redact_if_sensitive("key=sk-abc123def456ghi789jkl012mno345pqr678");
     assert!(!redacted.contains("sk-abc123"));
 }
 

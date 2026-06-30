@@ -104,7 +104,13 @@ mod tests {
     fn low_importance_old_memory_is_candidate() {
         let engine = ForgettingEngine::new(ForgettingConfig::default());
         let now = chrono::Utc::now().timestamp();
-        let memories = vec![("mem-1".to_string(), MemoryLayer::L1, 0.1, now - 2 * 86400, false)];
+        let memories = vec![(
+            "mem-1".to_string(),
+            MemoryLayer::L1,
+            0.1,
+            now - 2 * 86400,
+            false,
+        )];
         let candidates = engine.scan_for_archive(memories, now);
         assert_eq!(candidates.len(), 1);
     }
@@ -113,7 +119,13 @@ mod tests {
     fn pinned_memory_is_not_candidate() {
         let engine = ForgettingEngine::new(ForgettingConfig::default());
         let now = chrono::Utc::now().timestamp();
-        let memories = vec![("mem-1".to_string(), MemoryLayer::L1, 0.1, now - 2 * 86400, true)];
+        let memories = vec![(
+            "mem-1".to_string(),
+            MemoryLayer::L1,
+            0.1,
+            now - 2 * 86400,
+            true,
+        )];
         let candidates = engine.scan_for_archive(memories, now);
         assert!(candidates.is_empty());
     }
@@ -122,7 +134,13 @@ mod tests {
     fn l7_is_not_candidate() {
         let engine = ForgettingEngine::new(ForgettingConfig::default());
         let now = chrono::Utc::now().timestamp();
-        let memories = vec![("mem-1".to_string(), MemoryLayer::L7, 0.1, now - 365 * 86400, false)];
+        let memories = vec![(
+            "mem-1".to_string(),
+            MemoryLayer::L7,
+            0.1,
+            now - 365 * 86400,
+            false,
+        )];
         let candidates = engine.scan_for_archive(memories, now);
         assert!(candidates.is_empty());
     }
@@ -131,7 +149,13 @@ mod tests {
     fn high_importance_is_not_candidate() {
         let engine = ForgettingEngine::new(ForgettingConfig::default());
         let now = chrono::Utc::now().timestamp();
-        let memories = vec![("mem-1".to_string(), MemoryLayer::L1, 0.8, now - 2 * 86400, false)];
+        let memories = vec![(
+            "mem-1".to_string(),
+            MemoryLayer::L1,
+            0.8,
+            now - 2 * 86400,
+            false,
+        )];
         let candidates = engine.scan_for_archive(memories, now);
         assert!(candidates.is_empty());
     }

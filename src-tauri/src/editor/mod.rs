@@ -18,4 +18,7 @@ pub use file_ops::{
     drain_for, spawn_watcher, validate_workspace_path, EditorState, FileContent, FileEntry,
     FileEvent, WatcherHandle,
 };
-pub use git::{commit as git_commit, diff as git_diff, init as git_init, log as git_log, status as git_status, GitDiff, GitLogEntry, GitStatus, StatusEntry};
+pub use git::{
+    commit as git_commit, diff as git_diff, init as git_init, log as git_log, status as git_status,
+    GitDiff, GitLogEntry, GitStatus, StatusEntry,
+};

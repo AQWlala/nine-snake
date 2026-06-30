@@ -56,13 +56,17 @@ impl SqliteSkillAutoEvolver {
         conn: Arc<parking_lot::Mutex<Connection>>,
         config: EvolutionConfig,
     ) -> Self {
-        Self { skills, ledger, conn, config }
+        Self {
+            skills,
+            ledger,
+            conn,
+            config,
+        }
     }
 
     /// Effective archive criterion.
     fn should_archive(&self, usage_count: u32, avg_rating: f32) -> bool {
-        usage_count >= self.config.archive_min_usage
-            && avg_rating < self.config.archive_rate_floor
+        usage_count >= self.config.archive_min_usage && avg_rating < self.config.archive_rate_floor
     }
 
     /// Move an already-archived skill back into the active list.
@@ -100,8 +104,7 @@ impl SkillAutoEvolver for SqliteSkillAutoEvolver {
             // Already archived? Check before evaluating.
             let already_archived = {
                 let g = self.conn.lock();
-                let mut stmt = g
-                    .prepare("SELECT 1 FROM skill_archive WHERE skill_id = ?1")?;
+                let mut stmt = g.prepare("SELECT 1 FROM skill_archive WHERE skill_id = ?1")?;
                 stmt.exists(params![s.id])?
             };
             if already_archived {

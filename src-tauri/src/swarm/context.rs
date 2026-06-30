@@ -21,7 +21,11 @@ pub struct ContextEntry {
 }
 
 impl ContextEntry {
-    pub fn new(author: impl Into<String>, label: impl Into<String>, body: impl Into<String>) -> Self {
+    pub fn new(
+        author: impl Into<String>,
+        label: impl Into<String>,
+        body: impl Into<String>,
+    ) -> Self {
         Self {
             author: author.into(),
             label: label.into(),

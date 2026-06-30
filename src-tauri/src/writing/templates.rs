@@ -69,13 +69,41 @@ fn tech_blog() -> WritingTemplate {
         description: "带 TL;DR / 背景 / 实现 / 总结的标准技术文章骨架".into(),
         icon: "📝".into(),
         placeholders: vec![
-            TemplatePlaceholder { name: "title".into(), hint: "标题".into(), multiline: false },
-            TemplatePlaceholder { name: "summary".into(), hint: "一句话 TL;DR".into(), multiline: false },
-            TemplatePlaceholder { name: "background".into(), hint: "问题背景".into(), multiline: true },
-            TemplatePlaceholder { name: "approach".into(), hint: "解决思路".into(), multiline: true },
-            TemplatePlaceholder { name: "code".into(), hint: "核心代码".into(), multiline: true },
-            TemplatePlaceholder { name: "results".into(), hint: "效果 / 性能".into(), multiline: true },
-            TemplatePlaceholder { name: "takeaways".into(), hint: "关键收获".into(), multiline: true },
+            TemplatePlaceholder {
+                name: "title".into(),
+                hint: "标题".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "summary".into(),
+                hint: "一句话 TL;DR".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "background".into(),
+                hint: "问题背景".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "approach".into(),
+                hint: "解决思路".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "code".into(),
+                hint: "核心代码".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "results".into(),
+                hint: "效果 / 性能".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "takeaways".into(),
+                hint: "关键收获".into(),
+                multiline: true,
+            },
         ],
         body: r#"# {{title}}
 
@@ -114,12 +142,36 @@ fn marketing_copy() -> WritingTemplate {
         description: "痛点 → 方案 → 价值 → CTA 经典四段式".into(),
         icon: "📣".into(),
         placeholders: vec![
-            TemplatePlaceholder { name: "product".into(), hint: "产品名".into(), multiline: false },
-            TemplatePlaceholder { name: "audience".into(), hint: "目标用户".into(), multiline: false },
-            TemplatePlaceholder { name: "pain".into(), hint: "核心痛点".into(), multiline: true },
-            TemplatePlaceholder { name: "promise".into(), hint: "价值承诺".into(), multiline: true },
-            TemplatePlaceholder { name: "proof".into(), hint: "数据 / 案例 / 证言".into(), multiline: true },
-            TemplatePlaceholder { name: "cta".into(), hint: "行动号召".into(), multiline: false },
+            TemplatePlaceholder {
+                name: "product".into(),
+                hint: "产品名".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "audience".into(),
+                hint: "目标用户".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "pain".into(),
+                hint: "核心痛点".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "promise".into(),
+                hint: "价值承诺".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "proof".into(),
+                hint: "数据 / 案例 / 证言".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "cta".into(),
+                hint: "行动号召".into(),
+                multiline: false,
+            },
         ],
         body: r#"# {{product}} —— 给 {{audience}} 的更好选择
 
@@ -150,14 +202,46 @@ fn academic_paper() -> WritingTemplate {
         description: "IMRaD 结构的论文骨架（中文版）".into(),
         icon: "🎓".into(),
         placeholders: vec![
-            TemplatePlaceholder { name: "title".into(), hint: "题目".into(), multiline: false },
-            TemplatePlaceholder { name: "abstract".into(), hint: "摘要".into(), multiline: true },
-            TemplatePlaceholder { name: "keywords".into(), hint: "关键词（逗号分隔）".into(), multiline: false },
-            TemplatePlaceholder { name: "introduction".into(), hint: "引言".into(), multiline: true },
-            TemplatePlaceholder { name: "method".into(), hint: "方法".into(), multiline: true },
-            TemplatePlaceholder { name: "results".into(), hint: "结果".into(), multiline: true },
-            TemplatePlaceholder { name: "discussion".into(), hint: "讨论".into(), multiline: true },
-            TemplatePlaceholder { name: "conclusion".into(), hint: "结论".into(), multiline: true },
+            TemplatePlaceholder {
+                name: "title".into(),
+                hint: "题目".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "abstract".into(),
+                hint: "摘要".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "keywords".into(),
+                hint: "关键词（逗号分隔）".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "introduction".into(),
+                hint: "引言".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "method".into(),
+                hint: "方法".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "results".into(),
+                hint: "结果".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "discussion".into(),
+                hint: "讨论".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "conclusion".into(),
+                hint: "结论".into(),
+                multiline: true,
+            },
         ],
         body: r#"# {{title}}
 
@@ -196,12 +280,36 @@ fn business_email() -> WritingTemplate {
         description: "简洁专业的商务邮件骨架".into(),
         icon: "📧".into(),
         placeholders: vec![
-            TemplatePlaceholder { name: "subject".into(), hint: "邮件主题".into(), multiline: false },
-            TemplatePlaceholder { name: "recipient".into(), hint: "收件人称呼".into(), multiline: false },
-            TemplatePlaceholder { name: "context".into(), hint: "背景 / 来意".into(), multiline: true },
-            TemplatePlaceholder { name: "request".into(), hint: "希望对方做什么".into(), multiline: true },
-            TemplatePlaceholder { name: "deadline".into(), hint: "时间节点".into(), multiline: false },
-            TemplatePlaceholder { name: "signoff".into(), hint: "署名".into(), multiline: false },
+            TemplatePlaceholder {
+                name: "subject".into(),
+                hint: "邮件主题".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "recipient".into(),
+                hint: "收件人称呼".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "context".into(),
+                hint: "背景 / 来意".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "request".into(),
+                hint: "希望对方做什么".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "deadline".into(),
+                hint: "时间节点".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "signoff".into(),
+                hint: "署名".into(),
+                multiline: false,
+            },
         ],
         body: r#"**主题**：{{subject}}
 
@@ -229,12 +337,36 @@ fn meeting_notes() -> WritingTemplate {
         description: "时间 / 参与人 / 议题 / 决议 / 行动项".into(),
         icon: "🗒️".into(),
         placeholders: vec![
-            TemplatePlaceholder { name: "title".into(), hint: "会议名".into(), multiline: false },
-            TemplatePlaceholder { name: "datetime".into(), hint: "时间".into(), multiline: false },
-            TemplatePlaceholder { name: "attendees".into(), hint: "参与人".into(), multiline: false },
-            TemplatePlaceholder { name: "agenda".into(), hint: "议程".into(), multiline: true },
-            TemplatePlaceholder { name: "decisions".into(), hint: "已达成决议".into(), multiline: true },
-            TemplatePlaceholder { name: "actions".into(), hint: "行动项（谁 / 做什么 / 何时）".into(), multiline: true },
+            TemplatePlaceholder {
+                name: "title".into(),
+                hint: "会议名".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "datetime".into(),
+                hint: "时间".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "attendees".into(),
+                hint: "参与人".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "agenda".into(),
+                hint: "议程".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "decisions".into(),
+                hint: "已达成决议".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "actions".into(),
+                hint: "行动项（谁 / 做什么 / 何时）".into(),
+                multiline: true,
+            },
         ],
         body: r#"# {{title}} 会议纪要
 
@@ -264,12 +396,36 @@ fn novel_chapter() -> WritingTemplate {
         description: "场景 → 冲突 → 转折 → 钩子 四段式小说骨架".into(),
         icon: "📖".into(),
         placeholders: vec![
-            TemplatePlaceholder { name: "chapter".into(), hint: "章节名 / 序号".into(), multiline: false },
-            TemplatePlaceholder { name: "pov".into(), hint: "POV 角色".into(), multiline: false },
-            TemplatePlaceholder { name: "setting".into(), hint: "场景设定".into(), multiline: true },
-            TemplatePlaceholder { name: "conflict".into(), hint: "冲突 / 紧张".into(), multiline: true },
-            TemplatePlaceholder { name: "turn".into(), hint: "转折 / 揭示".into(), multiline: true },
-            TemplatePlaceholder { name: "hook".into(), hint: "章末钩子".into(), multiline: true },
+            TemplatePlaceholder {
+                name: "chapter".into(),
+                hint: "章节名 / 序号".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "pov".into(),
+                hint: "POV 角色".into(),
+                multiline: false,
+            },
+            TemplatePlaceholder {
+                name: "setting".into(),
+                hint: "场景设定".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "conflict".into(),
+                hint: "冲突 / 紧张".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "turn".into(),
+                hint: "转折 / 揭示".into(),
+                multiline: true,
+            },
+            TemplatePlaceholder {
+                name: "hook".into(),
+                hint: "章末钩子".into(),
+                multiline: true,
+            },
         ],
         body: r#"# {{chapter}}
 

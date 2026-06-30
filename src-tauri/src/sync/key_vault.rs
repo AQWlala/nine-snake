@@ -51,9 +51,7 @@ impl KeyVault {
                 info!(target: "nine_snake.vault", key_id, "retrieved from OS keychain");
                 Ok(Some(val))
             }
-            Ok(None) => {
-                self.retrieve_file(key_id).await
-            }
+            Ok(None) => self.retrieve_file(key_id).await,
             Err(e) => {
                 warn!(target: "nine_snake.vault", key_id, error = ?e, "OS keychain read failed; trying encrypted file fallback");
                 self.retrieve_file(key_id).await
@@ -72,7 +70,9 @@ impl KeyVault {
     }
 
     fn file_path(&self, key_id: &str) -> PathBuf {
-        self.data_dir.join(VAULT_DIR_NAME).join(format!("{key_id}.enc"))
+        self.data_dir
+            .join(VAULT_DIR_NAME)
+            .join(format!("{key_id}.enc"))
     }
 
     async fn store_file(&self, key_id: &str, secret: &str) -> Result<()> {
@@ -82,8 +82,7 @@ impl KeyVault {
 
         let sealed = Self::seal(secret)?;
         let path = self.file_path(key_id);
-        std::fs::write(&path, &sealed)
-            .with_context(|| format!("writing key file for {key_id}"))?;
+        std::fs::write(&path, &sealed).with_context(|| format!("writing key file for {key_id}"))?;
         info!(target: "nine_snake.vault", key_id, "stored in encrypted file fallback");
         Ok(())
     }
@@ -93,8 +92,8 @@ impl KeyVault {
         if !path.exists() {
             return Ok(None);
         }
-        let sealed = std::fs::read(&path)
-            .with_context(|| format!("reading key file for {key_id}"))?;
+        let sealed =
+            std::fs::read(&path).with_context(|| format!("reading key file for {key_id}"))?;
         let secret = Self::unseal(&sealed)?;
         Ok(Some(secret))
     }
@@ -152,9 +151,7 @@ impl KeyVault {
         {
             hasher.update(hostname.as_bytes());
         }
-        if let Ok(user) = std::env::var("USERNAME")
-            .or_else(|_| std::env::var("USER"))
-        {
+        if let Ok(user) = std::env::var("USERNAME").or_else(|_| std::env::var("USER")) {
             hasher.update(user.as_bytes());
         }
         hasher.finalize().into()

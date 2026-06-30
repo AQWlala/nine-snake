@@ -6,7 +6,10 @@
 //! `src/lib.rs` and its submodules so the same code paths can be reused by
 //! integration tests and (in the future) by an alternative front-end.
 
-#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
 
 fn main() {
     nine_snake_lib::run();

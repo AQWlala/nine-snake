@@ -104,14 +104,9 @@ async fn server_binds_and_accepts_tcp_connection() {
     // (the wire shim is a stub anyway); we just want to confirm
     // the accept loop fires and the server's `handle_connection`
     // logs + closes.
-    let connect = tokio::time::timeout(
-        Duration::from_secs(5),
-        tokio::net::TcpStream::connect(addr),
-    )
-    .await;
-    let mut stream = connect
-        .expect("connect timed out")
-        .expect("connect failed");
+    let connect =
+        tokio::time::timeout(Duration::from_secs(5), tokio::net::TcpStream::connect(addr)).await;
+    let mut stream = connect.expect("connect timed out").expect("connect failed");
 
     // The server should close the connection quickly once
     // handle_connection returns.  Give it 2 s, then assert the
@@ -137,7 +132,7 @@ async fn service_implements_all_rpcs() {
     // list below is a belt-and-braces assertion that the count
     // never drifts.
     use nine_snake_lib::grpc::proto as p;
-        use nine_snake_lib::grpc::server::NineSnakeServiceImpl;
+    use nine_snake_lib::grpc::server::NineSnakeServiceImpl;
 
     // RPC manifest. Anything past this list would be a
     // v0.4 addition and must bump EXPECTED_RPC_METHODS explicitly.
@@ -146,16 +141,32 @@ async fn service_implements_all_rpcs() {
     // 5 (Skills: create, use, rate, list, search) = 23.
     let trait_method_names: &[&str] = &[
         // Memory — 8
-        "store", "get", "search", "list_recent",
-        "update_importance", "delete", "get_many", "get_stats",
+        "store",
+        "get",
+        "search",
+        "list_recent",
+        "update_importance",
+        "delete",
+        "get_many",
+        "get_stats",
         // Swarm — 4
-        "swarm_execute", "list_agents", "get_agent", "stream_events",
+        "swarm_execute",
+        "list_agents",
+        "get_agent",
+        "stream_events",
         // Reflect — 3
-        "reflect_now", "list_reflections", "get_reflection",
+        "reflect_now",
+        "list_reflections",
+        "get_reflection",
         // LLM — 3
-        "complete", "chat", "embed",
+        "complete",
+        "chat",
+        "embed",
         // Skills — 5
-        "skill_create", "skill_use", "skill_rate", "skill_list",
+        "skill_create",
+        "skill_use",
+        "skill_rate",
+        "skill_list",
         "skill_search",
     ];
     assert_eq!(

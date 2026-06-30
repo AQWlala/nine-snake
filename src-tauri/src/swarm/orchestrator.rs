@@ -1,4 +1,4 @@
-﻿//! Swarm orchestrator — v2.0 jiuwenswarm-style dynamic agent dispatch.
+//! Swarm orchestrator — v2.0 jiuwenswarm-style dynamic agent dispatch.
 //!
 //! ## v2.0 redesign
 //!
@@ -62,8 +62,12 @@ pub struct SwarmTask {
     pub agents: Vec<String>,
 }
 
-fn default_agent_count() -> u32 { 3 }
-fn default_max_retries() -> u32 { 1 }
+fn default_agent_count() -> u32 {
+    3
+}
+fn default_max_retries() -> u32 {
+    1
+}
 
 impl SwarmTask {
     pub fn new(description: impl Into<String>) -> Self {
@@ -180,7 +184,6 @@ impl SwarmOrchestrator {
         &self.bus
     }
 
-
     // Agent introspection (kept for gRPC / front-end compatibility)
     // ------------------------------------------------------------------
 
@@ -274,7 +277,6 @@ impl SwarmOrchestrator {
     /// [`TeamContext`] snapshot.  They run concurrently; a single
     /// failure is recorded but does not abort the remaining agents.
     pub async fn execute(&self, task: SwarmTask) -> Result<OrchestrationReport> {
-
         let ctx = TeamContext::new();
         ctx.push_str("system", "task", &task.description);
 
@@ -307,9 +309,9 @@ impl SwarmOrchestrator {
                 let t = task.description.clone();
                 let c = ctx.clone();
                 let max_retries = task.max_retries;
-                tokio::spawn(async move {
-                    Self::run_agent_with_retry(agent, &t, &c, max_retries).await
-                })
+                tokio::spawn(
+                    async move { Self::run_agent_with_retry(agent, &t, &c, max_retries).await },
+                )
             })
             .collect();
 
@@ -418,8 +420,7 @@ impl SwarmOrchestrator {
                     );
                     last_err = Some(e);
                     if attempt < max_retries {
-                        let delay =
-                            Duration::from_millis(RETRY_BASE_DELAY_MS * 2u64.pow(attempt));
+                        let delay = Duration::from_millis(RETRY_BASE_DELAY_MS * 2u64.pow(attempt));
                         tokio::time::sleep(delay).await;
                     }
                 }
@@ -448,12 +449,8 @@ mod tests {
     async fn empty_pool_refuses_to_run() {
         // We cannot test full execution without a running LLM, but we
         // can confirm that the orchestrator correctly clamps agent_count.
-        let client = std::sync::Arc::new(crate::llm::OllamaClient::new(
-            "http://127.0.0.1:1",
-        ));
-        let gw = std::sync::Arc::new(crate::llm::LlmGateway::new(
-            client, "m", None, None, None,
-        ));
+        let client = std::sync::Arc::new(crate::llm::OllamaClient::new("http://127.0.0.1:1"));
+        let gw = std::sync::Arc::new(crate::llm::LlmGateway::new(client, "m", None, None, None));
         let orch = SwarmOrchestrator::new_without_memory(gw);
         // agent_pool is pre-built with 6 agents — verify.
         assert_eq!(orch.agent_pool.len(), 6);

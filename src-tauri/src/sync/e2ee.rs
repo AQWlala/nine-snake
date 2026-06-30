@@ -378,7 +378,11 @@ fn compute_fingerprint(a: &PublicKey, b: &PublicKey) -> String {
 }
 
 #[instrument(skip(plaintext))]
-pub fn encrypt_for_peer(local: &E2eeIdentity, peer_public_b64: &str, plaintext: &[u8]) -> Result<(EncryptedEnvelope, String)> {
+pub fn encrypt_for_peer(
+    local: &E2eeIdentity,
+    peer_public_b64: &str,
+    plaintext: &[u8],
+) -> Result<(EncryptedEnvelope, String)> {
     let pair = Pair::new(local.clone(), peer_public_b64)?;
     let env = pair.encrypt(plaintext)?;
     Ok((env, pair.fingerprint))

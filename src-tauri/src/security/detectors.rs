@@ -12,9 +12,9 @@
 //! - 中国手机号（China Mobile phone numbers）
 
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use regex::Regex;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 /// 基于正则表达式的单类敏感数据检测器。
 #[derive(Debug, Clone)]
@@ -42,22 +42,21 @@ impl SensitiveDetector {
     /// 扫描内容，返回（是否发现敏感数据, 脱敏后的内容）。
     pub fn scan(&self, content: &str) -> (bool, String) {
         let found = self.pattern.is_match(content);
-        let redacted = self.pattern.replace_all(content, self.replacement).to_string();
+        let redacted = self
+            .pattern
+            .replace_all(content, self.replacement)
+            .to_string();
         (found, redacted)
     }
 }
 
 /// 预编译的中国身份证正则（18位，最后一位可能是X）
 #[allow(dead_code)]
-static CHINA_ID_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\b\d{17}[\dXx]\b").unwrap()
-});
+static CHINA_ID_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b\d{17}[\dXx]\b").unwrap());
 
 /// 预编译的中国手机号正则（11位，以1开头）
 #[allow(dead_code)]
-static CHINA_PHONE_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\b1[3-9]\d{9}\b").unwrap()
-});
+static CHINA_PHONE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b1[3-9]\d{9}\b").unwrap());
 
 /// 检测器注册表 — 扫描内容对所有注册模式进行检测。
 pub struct SensitiveScanner {
@@ -79,32 +78,24 @@ impl SensitiveScanner {
                 SensitiveDetector::new(
                     "api_key",
                     r#"(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token)\s*[:=]\s*['"]?([A-Za-z0-9_\-]{20,})['"]?"#,
-                    "$1: [REDACTED]"
+                    "$1: [REDACTED]",
                 ),
                 // Bearer 令牌
                 SensitiveDetector::new(
                     "bearer_token",
                     r"(?i)bearer\s+([A-Za-z0-9_\-\.]{20,})",
-                    "bearer [REDACTED]"
+                    "bearer [REDACTED]",
                 ),
                 // 私钥（PEM 格式）
                 SensitiveDetector::new(
                     "private_key",
                     r"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----",
-                    "[REDACTED PRIVATE KEY]"
+                    "[REDACTED PRIVATE KEY]",
                 ),
                 // 中国居民身份证（18位）
-                SensitiveDetector::new(
-                    "china_id",
-                    r"\b\d{17}[\dXx]\b",
-                    "[REDACTED ID]"
-                ),
+                SensitiveDetector::new("china_id", r"\b\d{17}[\dXx]\b", "[REDACTED ID]"),
                 // 中国手机号（11位，以1开头）
-                SensitiveDetector::new(
-                    "china_phone",
-                    r"\b1[3-9]\d{9}\b",
-                    "[REDACTED PHONE]"
-                ),
+                SensitiveDetector::new("china_phone", r"\b1[3-9]\d{9}\b", "[REDACTED PHONE]"),
             ],
         }
     }
@@ -127,9 +118,8 @@ impl SensitiveScanner {
 
 /// 全局共享的敏感数据扫描器实例。
 /// 使用 `RwLock` 支持并发读访问。
-static GLOBAL_SCANNER: Lazy<Arc<RwLock<SensitiveScanner>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(SensitiveScanner::new()))
-});
+static GLOBAL_SCANNER: Lazy<Arc<RwLock<SensitiveScanner>>> =
+    Lazy::new(|| Arc::new(RwLock::new(SensitiveScanner::new())));
 
 /// 对给定内容进行敏感数据扫描。
 /// 返回（脱敏后的内容, 检测到的类别列表）。
@@ -190,7 +180,9 @@ mod tests {
 
     #[test]
     fn contains_sensitive_returns_bool() {
-        assert!(contains_sensitive("API_KEY=sk-abcdefghijklmnopqrstuvwxyz1234567890AB"));
+        assert!(contains_sensitive(
+            "API_KEY=sk-abcdefghijklmnopqrstuvwxyz1234567890AB"
+        ));
         assert!(!contains_sensitive("今天天气很好"));
     }
 }

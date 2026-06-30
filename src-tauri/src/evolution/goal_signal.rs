@@ -24,13 +24,19 @@ pub struct GoalSignal {
 pub fn win_rate(outcomes: &[Outcome], confidence_threshold: f32) -> GoalSignal {
     let n = outcomes.len();
     if n == 0 {
-        return GoalSignal { win_rate: 0.0, n: 0 };
+        return GoalSignal {
+            win_rate: 0.0,
+            n: 0,
+        };
     }
     let wins = outcomes
         .iter()
         .filter(|o| o.confidence >= confidence_threshold)
         .count();
-    GoalSignal { win_rate: wins as f32 / n as f32, n }
+    GoalSignal {
+        win_rate: wins as f32 / n as f32,
+        n,
+    }
 }
 
 pub fn confidence_mean(outcomes: &[Outcome]) -> f32 {
@@ -69,9 +75,15 @@ pub fn filter_by<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evolution::outcome::{OutcomeStatus, OutcomeSource};
+    use crate::evolution::outcome::{OutcomeSource, OutcomeStatus};
 
-    fn make_outcome(id: &str, source: OutcomeSource, source_id: &str, conf: f32, t: i64) -> Outcome {
+    fn make_outcome(
+        id: &str,
+        source: OutcomeSource,
+        source_id: &str,
+        conf: f32,
+        t: i64,
+    ) -> Outcome {
         Outcome {
             id: id.into(),
             source_id: source_id.into(),
@@ -97,10 +109,22 @@ mod tests {
     fn win_rate_half() {
         let mut outs: Vec<Outcome> = Vec::new();
         for i in 0..2 {
-            outs.push(make_outcome(&format!("o{i}"), OutcomeSource::Skill, "s", 0.9, i));
+            outs.push(make_outcome(
+                &format!("o{i}"),
+                OutcomeSource::Skill,
+                "s",
+                0.9,
+                i,
+            ));
         }
         for i in 2..4 {
-            outs.push(make_outcome(&format!("o{i}"), OutcomeSource::Skill, "s", 0.4, i));
+            outs.push(make_outcome(
+                &format!("o{i}"),
+                OutcomeSource::Skill,
+                "s",
+                0.4,
+                i,
+            ));
         }
         let g = win_rate(&outs, 0.7);
         assert!((g.win_rate - 0.5).abs() < 0.001);

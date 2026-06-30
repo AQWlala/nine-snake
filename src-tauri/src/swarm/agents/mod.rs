@@ -101,7 +101,12 @@ pub struct AgentOutput {
 
 impl AgentOutput {
     pub fn new(kind: AgentKind, author: impl Into<String>, body: impl Into<String>) -> Self {
-        Self { kind, author: author.into(), body: body.into(), confidence: 0.8 }
+        Self {
+            kind,
+            author: author.into(),
+            body: body.into(),
+            confidence: 0.8,
+        }
     }
 
     pub fn with_confidence(mut self, c: f32) -> Self {
@@ -141,17 +146,22 @@ pub fn build_agent_pool(llm: Arc<LlmGateway>) -> Vec<Arc<dyn Agent>> {
 /// to `GenericAgent`. The result is clamped to `2..=6` agents.
 pub fn build_agent_pool_by_kinds(kinds: &[&str], llm: Arc<LlmGateway>) -> Vec<Arc<dyn Agent>> {
     let clamped = kinds.len().clamp(2, 6);
-    kinds.iter().take(clamped).enumerate().map(|(i, kind)| {
-        let agent: Arc<dyn Agent> = match *kind {
-            "coder" => Arc::new(CoderAgent::new(llm.clone())) as Arc<dyn Agent>,
-            "writer" => Arc::new(WriterAgent::new(llm.clone(), None)) as Arc<dyn Agent>,
-            "reviewer" => Arc::new(ReviewerAgent::new(llm.clone())) as Arc<dyn Agent>,
-            "planner" => Arc::new(PlannerAgent::new(llm.clone())) as Arc<dyn Agent>,
-            "researcher" => Arc::new(ResearcherAgent::new(llm.clone())) as Arc<dyn Agent>,
-            _ => Arc::new(GenericAgent::new(llm.clone(), (i + 1) as u32)) as Arc<dyn Agent>,
-        };
-        agent
-    }).collect()
+    kinds
+        .iter()
+        .take(clamped)
+        .enumerate()
+        .map(|(i, kind)| {
+            let agent: Arc<dyn Agent> = match *kind {
+                "coder" => Arc::new(CoderAgent::new(llm.clone())) as Arc<dyn Agent>,
+                "writer" => Arc::new(WriterAgent::new(llm.clone(), None)) as Arc<dyn Agent>,
+                "reviewer" => Arc::new(ReviewerAgent::new(llm.clone())) as Arc<dyn Agent>,
+                "planner" => Arc::new(PlannerAgent::new(llm.clone())) as Arc<dyn Agent>,
+                "researcher" => Arc::new(ResearcherAgent::new(llm.clone())) as Arc<dyn Agent>,
+                _ => Arc::new(GenericAgent::new(llm.clone(), (i + 1) as u32)) as Arc<dyn Agent>,
+            };
+            agent
+        })
+        .collect()
 }
 
 /// Deprecated — kept for gRPC backward compatibility.
@@ -210,7 +220,11 @@ impl DynamicAgentPool {
     }
 
     pub fn acquire(&mut self, kind: AgentKind) -> Option<Arc<dyn Agent>> {
-        if let Some(pooled) = self.agents.iter_mut().find(|a| !a.in_use && a.agent.kind() == kind) {
+        if let Some(pooled) = self
+            .agents
+            .iter_mut()
+            .find(|a| !a.in_use && a.agent.kind() == kind)
+        {
             pooled.in_use = true;
             pooled.last_used = std::time::Instant::now();
             return Some(pooled.agent.clone());
@@ -246,7 +260,11 @@ impl DynamicAgentPool {
     }
 
     pub fn release(&mut self, agent_name: &str) {
-        if let Some(pooled) = self.agents.iter_mut().find(|a| a.agent.name() == agent_name) {
+        if let Some(pooled) = self
+            .agents
+            .iter_mut()
+            .find(|a| a.agent.name() == agent_name)
+        {
             pooled.in_use = false;
             pooled.last_used = std::time::Instant::now();
         }
@@ -254,7 +272,8 @@ impl DynamicAgentPool {
 
     pub fn cleanup_idle(&mut self) -> usize {
         let before = self.agents.len();
-        self.agents.retain(|a| a.in_use || a.last_used.elapsed() < self.idle_timeout);
+        self.agents
+            .retain(|a| a.in_use || a.last_used.elapsed() < self.idle_timeout);
         before - self.agents.len()
     }
 

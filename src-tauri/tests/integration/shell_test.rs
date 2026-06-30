@@ -12,7 +12,10 @@ use std::time::Duration;
 async fn whitelist_default_includes_basic_binaries() {
     let ex = ShellExecutor::new();
     for bin in ["ls", "cat", "echo", "git", "cargo", "node", "python3"] {
-        assert!(ex.is_allowed(bin), "expected {bin} to be in the default whitelist");
+        assert!(
+            ex.is_allowed(bin),
+            "expected {bin} to be in the default whitelist"
+        );
     }
     assert!(!ex.is_allowed("curl"));
     assert!(!ex.is_allowed("nc"));
@@ -40,7 +43,10 @@ async fn parse_argv_rejects_unbalanced_quote() {
 #[tokio::test]
 async fn exec_rejects_disallowed_binary() {
     let ex = ShellExecutor::new();
-    let err = ex.exec(vec!["curl"], None).await.expect_err("should reject");
+    let err = ex
+        .exec(vec!["curl"], None)
+        .await
+        .expect_err("should reject");
     assert!(err.to_string().contains("whitelist"));
 }
 
@@ -59,7 +65,8 @@ async fn exec_respects_short_timeout() {
     // timed-out result on any reasonable machine.
     let ex = ShellExecutor::new().with_timeout(Duration::from_millis(50));
     let out = ex
-        .exec(vec!["find", "/"], None).await
+        .exec(vec!["find", "/"], None)
+        .await
         .expect("exec should not error on timeout, just mark timed_out");
     if out.timed_out {
         assert_eq!(out.exit_code, -1);
@@ -74,6 +81,9 @@ async fn exec_respects_short_timeout() {
 async fn exec_rejects_null_byte() {
     let ex = ShellExecutor::new();
     let argv: Vec<String> = vec!["echo".into(), "ab\u{0}cd".into()];
-    let err = ex.exec(argv, None).await.expect_err("null byte must be rejected");
+    let err = ex
+        .exec(argv, None)
+        .await
+        .expect_err("null byte must be rejected");
     assert!(err.to_string().contains("null"));
 }

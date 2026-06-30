@@ -31,25 +31,29 @@ pub mod error;
 
 // Submodules — each groups related commands and DTOs.
 pub mod chat;
-pub mod memory;
-pub mod swarm;
+pub mod core;
+pub mod editor;
 pub mod llm;
+pub mod memory;
+pub mod os;
 pub mod reflect;
 pub mod skill;
-pub mod writing;
-pub mod work;
-pub mod editor;
-pub mod os;
+pub mod swarm;
 pub mod sync;
-pub mod core;
+pub mod work;
+pub mod writing;
+// v1.2: channel commands — feature-gated behind `channels`.
+#[cfg(feature = "channels")]
 pub mod channel;
-pub mod security;
-pub mod identity;
-pub mod export;
 pub mod device;
-pub mod webchat;
+pub mod export;
+pub mod identity;
+pub mod security;
+// v1.3: WebChat share — feature-gated behind `channels`.
 pub mod acl;
 pub mod tool;
+#[cfg(feature = "channels")]
+pub mod webchat;
 
 // Re-export the API DTOs so other modules (gRPC, tests) can reach them
 // through the `commands` namespace without depending on the internal
@@ -69,26 +73,28 @@ pub mod api {
 // Re-export all public items from submodules so that
 // `commands::chat`, `commands::memory_store`, etc. still resolve
 // for `generate_handler!` in `lib.rs`.
-pub use chat::*;
-pub use memory::*;
-pub use swarm::*;
-pub use llm::*;
-pub use reflect::*;
-pub use skill::*;
-pub use writing::*;
-pub use work::*;
-pub use editor::*;
-pub use os::*;
-pub use sync::*;
-pub use core::*;
-pub use channel::*;
-pub use security::*;
-pub use identity::*;
-pub use export::*;
-pub use device::*;
-pub use webchat::*;
 pub use acl::*;
+#[cfg(feature = "channels")]
+pub use channel::*;
+pub use chat::*;
+pub use core::*;
+pub use device::*;
+pub use editor::*;
+pub use export::*;
+pub use identity::*;
+pub use llm::*;
+pub use memory::*;
+pub use os::*;
+pub use reflect::*;
+pub use security::*;
+pub use skill::*;
+pub use swarm::*;
+pub use sync::*;
 pub use tool::*;
+#[cfg(feature = "channels")]
+pub use webchat::*;
+pub use work::*;
+pub use writing::*;
 
 pub use error::{CommandError, ErrorCode};
 
@@ -124,13 +130,28 @@ impl NineSnakeService for AppState {
             mem.metadata = meta;
         }
         match self.sponge.absorb(mem).await? {
-            SpongeResult::Inserted { id } => Ok(StoreMemoryResponse { id, merged: false, similarity: None }),
-            SpongeResult::Merged { id, similarity } => Ok(StoreMemoryResponse { id, merged: true, similarity: Some(similarity) }),
-            SpongeResult::Duplicate { id } => Ok(StoreMemoryResponse { id, merged: true, similarity: Some(1.0) }),
+            SpongeResult::Inserted { id } => Ok(StoreMemoryResponse {
+                id,
+                merged: false,
+                similarity: None,
+            }),
+            SpongeResult::Merged { id, similarity } => Ok(StoreMemoryResponse {
+                id,
+                merged: true,
+                similarity: Some(similarity),
+            }),
+            SpongeResult::Duplicate { id } => Ok(StoreMemoryResponse {
+                id,
+                merged: true,
+                similarity: Some(1.0),
+            }),
         }
     }
 
-    async fn memory_search(&self, req: SearchMemoryRequest) -> anyhow::Result<Vec<SearchMemoryHit>> {
+    async fn memory_search(
+        &self,
+        req: SearchMemoryRequest,
+    ) -> anyhow::Result<Vec<SearchMemoryHit>> {
         let k = req.k.max(1);
         let query_emb = self.embedder.embed(&req.query).await?;
         let hits = self.lance.search(&query_emb, k).await?;
@@ -138,7 +159,10 @@ impl NineSnakeService for AppState {
             return Ok(Vec::new());
         }
         let ids: Vec<String> = hits.iter().map(|(id, _)| id.clone()).collect();
-        let memories = self.sqlite.get_many(&ids).await
+        let memories = self
+            .sqlite
+            .get_many(&ids)
+            .await
             .map_err(|e| anyhow::anyhow!("get_many error: {e}"))?;
 
         let score_by_id: std::collections::HashMap<&str, f32> =
@@ -156,7 +180,10 @@ impl NineSnakeService for AppState {
                         return None;
                     }
                 }
-                Some(SearchMemoryHit { memory: m, score: s })
+                Some(SearchMemoryHit {
+                    memory: m,
+                    score: s,
+                })
             })
             .collect();
         Ok(out)
@@ -180,18 +207,16 @@ impl NineSnakeService for AppState {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "mcp")]
+use crate::AppState;
+#[cfg(feature = "mcp")]
 use tauri::State;
 #[cfg(feature = "mcp")]
 use tracing::instrument;
-#[cfg(feature = "mcp")]
-use crate::AppState;
 
 #[cfg(feature = "mcp")]
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "mcp_list_servers"))]
-pub async fn mcp_list_servers(
-    state: State<'_, AppState>,
-) -> Result<Vec<String>, CommandError> {
+pub async fn mcp_list_servers(state: State<'_, AppState>) -> Result<Vec<String>, CommandError> {
     Ok(state.mcp_manager.list_servers())
 }
 
@@ -299,7 +324,10 @@ mod tests {
         use crate::swarm::agents::AgentKind;
         assert_eq!("coder".parse::<AgentKind>().unwrap(), AgentKind::Coder);
         assert_eq!("writer".parse::<AgentKind>().unwrap(), AgentKind::Writer);
-        assert_eq!("reviewer".parse::<AgentKind>().unwrap(), AgentKind::Reviewer);
+        assert_eq!(
+            "reviewer".parse::<AgentKind>().unwrap(),
+            AgentKind::Reviewer
+        );
         assert!("unknown".parse::<AgentKind>().is_err());
     }
 }

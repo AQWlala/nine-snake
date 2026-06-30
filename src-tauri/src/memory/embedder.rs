@@ -72,7 +72,10 @@ impl Embedder {
         }
 
         crate::metrics::global().record_embedding_miss();
-        let req = EmbedRequest { model: &self.model, prompt: text };
+        let req = EmbedRequest {
+            model: &self.model,
+            prompt: text,
+        };
         let url = format!("{}/api/embeddings", self.client.base_url());
         let resp: EmbedResponse = self
             .client
@@ -99,7 +102,9 @@ impl Embedder {
 
         // LRU insertion — evicts the least-recently-used entry when the
         // cache is full.
-        self.cache.lock().put(text.to_string(), resp.embedding.clone());
+        self.cache
+            .lock()
+            .put(text.to_string(), resp.embedding.clone());
         Ok(resp.embedding)
     }
 
@@ -179,7 +184,10 @@ mod tests {
         let _ = cache.get(&"a".to_string());
         cache.put("c".to_string(), vec![3.0]);
         assert!(cache.get(&"a".to_string()).is_some());
-        assert!(cache.get(&"b".to_string()).is_none(), "b should have been evicted");
+        assert!(
+            cache.get(&"b".to_string()).is_none(),
+            "b should have been evicted"
+        );
         assert!(cache.get(&"c".to_string()).is_some());
     }
 }

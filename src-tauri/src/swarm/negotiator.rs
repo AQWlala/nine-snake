@@ -2,8 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::llm::{ChatMessage, LlmGateway};
 use super::agents::AgentOutput;
+use crate::llm::{ChatMessage, LlmGateway};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NegotiationResult {
@@ -38,11 +38,13 @@ impl Negotiator {
     pub fn negotiate(&self, outputs: Vec<AgentOutput>) -> NegotiationResult {
         if outputs.len() <= 1 {
             return NegotiationResult {
-                chosen: outputs.into_iter().next().unwrap_or_else(|| AgentOutput::new(
-                    super::agents::AgentKind::Generic,
-                    "system",
-                    "no outputs to negotiate",
-                )),
+                chosen: outputs.into_iter().next().unwrap_or_else(|| {
+                    AgentOutput::new(
+                        super::agents::AgentKind::Generic,
+                        "system",
+                        "no outputs to negotiate",
+                    )
+                }),
                 method: NegotiationMethod::HighConfidence,
                 conflict_detected: false,
             };
@@ -133,7 +135,15 @@ impl Negotiator {
         let candidates: Vec<String> = outputs
             .iter()
             .enumerate()
-            .map(|(i, o)| format!("Candidate {}: [{}] confidence={:.2}\n{}", i + 1, o.kind.as_str(), o.confidence, o.body))
+            .map(|(i, o)| {
+                format!(
+                    "Candidate {}: [{}] confidence={:.2}\n{}",
+                    i + 1,
+                    o.kind.as_str(),
+                    o.confidence,
+                    o.body
+                )
+            })
             .collect();
 
         let prompt = format!(
@@ -144,7 +154,10 @@ impl Negotiator {
             candidates.join("\n\n")
         );
 
-        let messages = vec![ChatMessage { role: "user".to_string(), content: prompt }];
+        let messages = vec![ChatMessage {
+            role: "user".to_string(),
+            content: prompt,
+        }];
         let response = llm.chat(messages).await?;
 
         Ok(AgentOutput::new(
@@ -157,8 +170,14 @@ impl Negotiator {
     fn highest_confidence(&self, outputs: Vec<AgentOutput>) -> AgentOutput {
         outputs
             .into_iter()
-            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap_or_else(|| AgentOutput::new(super::agents::AgentKind::Generic, "system", "no outputs"))
+            .max_by(|a, b| {
+                a.confidence
+                    .partial_cmp(&b.confidence)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap_or_else(|| {
+                AgentOutput::new(super::agents::AgentKind::Generic, "system", "no outputs")
+            })
     }
 }
 
@@ -192,7 +211,11 @@ mod tests {
     #[test]
     fn no_conflict_single_output() {
         let n = Negotiator::new();
-        let outputs = vec![AgentOutput::new(super::super::agents::AgentKind::Generic, "a", "hello")];
+        let outputs = vec![AgentOutput::new(
+            super::super::agents::AgentKind::Generic,
+            "a",
+            "hello",
+        )];
         let result = n.negotiate(outputs);
         assert!(!result.conflict_detected);
     }
@@ -201,8 +224,18 @@ mod tests {
     fn high_confidence_wins() {
         let n = Negotiator::new();
         let outputs = vec![
-            AgentOutput { kind: super::super::agents::AgentKind::Generic, author: "a".into(), body: "answer a".into(), confidence: 0.9 },
-            AgentOutput { kind: super::super::agents::AgentKind::Generic, author: "b".into(), body: "answer b".into(), confidence: 0.5 },
+            AgentOutput {
+                kind: super::super::agents::AgentKind::Generic,
+                author: "a".into(),
+                body: "answer a".into(),
+                confidence: 0.9,
+            },
+            AgentOutput {
+                kind: super::super::agents::AgentKind::Generic,
+                author: "b".into(),
+                body: "answer b".into(),
+                confidence: 0.5,
+            },
         ];
         let result = n.negotiate(outputs);
         assert_eq!(result.chosen.author, "a");

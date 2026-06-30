@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tracing::instrument;
 
-use crate::work::{self as work_ops, TaskStatus, WorkTask};
 use crate::commands::error::CommandError;
+use crate::work::{self as work_ops, TaskStatus, WorkTask};
 use crate::AppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,7 +25,12 @@ pub async fn work_create_task(
     let engine = state.work.clone();
     tokio::task::spawn_blocking(move || {
         engine
-            .create_task(request.title, request.description, request.priority, request.due_at)
+            .create_task(
+                request.title,
+                request.description,
+                request.priority,
+                request.due_at,
+            )
             .map_err(|e| CommandError::validation("work_create_task").with_details(e.to_string()))
     })
     .await
@@ -107,7 +112,13 @@ pub async fn work_update_task(
     let engine = state.work.clone();
     tokio::task::spawn_blocking(move || {
         engine
-            .update_task(&request.id, request.title, request.description, request.priority, request.due_at)
+            .update_task(
+                &request.id,
+                request.title,
+                request.description,
+                request.priority,
+                request.due_at,
+            )
             .map_err(|e| CommandError::internal("work_update_task", &e))
     })
     .await
@@ -174,9 +185,7 @@ pub async fn work_start_timer(
 
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "work_stop_timer"))]
-pub async fn work_stop_timer(
-    state: State<'_, AppState>,
-) -> Result<Option<WorkTask>, CommandError> {
+pub async fn work_stop_timer(state: State<'_, AppState>) -> Result<Option<WorkTask>, CommandError> {
     let engine = state.work.clone();
     tokio::task::spawn_blocking(move || {
         engine
@@ -206,8 +215,6 @@ pub async fn work_add_time(
 
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "work_active_timer"))]
-pub async fn work_active_timer(
-    state: State<'_, AppState>,
-) -> Result<Option<String>, CommandError> {
+pub async fn work_active_timer(state: State<'_, AppState>) -> Result<Option<String>, CommandError> {
     Ok(state.work.active_timer())
 }

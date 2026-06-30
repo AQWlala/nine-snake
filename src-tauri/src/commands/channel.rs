@@ -9,9 +9,7 @@ use crate::AppState;
 /// v1.2: Get current status of the message bridge.
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "channel_status"))]
-pub async fn channel_status(
-    state: State<'_, AppState>,
-) -> Result<serde_json::Value, CommandError> {
+pub async fn channel_status(state: State<'_, AppState>) -> Result<serde_json::Value, CommandError> {
     match &state.message_bridge {
         Some(bridge) => Ok(serde_json::json!({
             "connected": bridge.status().connected,
@@ -39,11 +37,16 @@ pub async fn channel_send(
                 body: text,
                 conversation_id: None,
             };
-            bridge.send(&req).await
+            bridge
+                .send(&req)
+                .await
                 .map(|_| true)
                 .map_err(|e| CommandError::internal("channel_send", &anyhow::anyhow!("{e}")))
         }
-        None => Err(CommandError::internal("channel_send", &anyhow::anyhow!("message bridge not configured"))),
+        None => Err(CommandError::internal(
+            "channel_send",
+            &anyhow::anyhow!("message bridge not configured"),
+        )),
     }
 }
 
@@ -54,7 +57,12 @@ pub async fn channel_poll(
     state: State<'_, AppState>,
 ) -> Result<Vec<serde_json::Value>, CommandError> {
     match &state.message_bridge {
-        Some(bridge) => Ok(bridge.poll().await.into_iter().map(|m| serde_json::to_value(&m).unwrap_or_default()).collect()),
+        Some(bridge) => Ok(bridge
+            .poll()
+            .await
+            .into_iter()
+            .map(|m| serde_json::to_value(&m).unwrap_or_default())
+            .collect()),
         None => Ok(Vec::new()),
     }
 }
@@ -62,9 +70,7 @@ pub async fn channel_poll(
 /// v1.2: Ping the message bridge.
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "channel_ping"))]
-pub async fn channel_ping(
-    state: State<'_, AppState>,
-) -> Result<bool, CommandError> {
+pub async fn channel_ping(state: State<'_, AppState>) -> Result<bool, CommandError> {
     match &state.message_bridge {
         Some(bridge) => Ok(bridge.ping().await),
         None => Ok(false),

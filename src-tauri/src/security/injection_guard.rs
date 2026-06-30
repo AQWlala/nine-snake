@@ -50,7 +50,9 @@ pub fn find_invisible_unicode(text: &str) -> Vec<InvisibleChar> {
 
 /// 移除所有不可见 Unicode 字符。
 pub fn strip_invisible_unicode(text: &str) -> String {
-    text.chars().filter(|c| !is_invisible_unicode_char(*c)).collect()
+    text.chars()
+        .filter(|c| !is_invisible_unicode_char(*c))
+        .collect()
 }
 
 /// 不可见字符信息。
@@ -80,7 +82,8 @@ fn is_invisible_unicode_char(ch: char) -> bool {
         '\u{200D}' | // ZERO WIDTH JOINER
         '\u{FEFF}' | // ZERO WIDTH NO-BREAK SPACE (BOM)
         '\u{2060}' | // WORD JOINER
-        '\u{2061}'..='\u{2064}' | // INVISIBLE operators
+        '\u{2061}'
+            ..='\u{2064}' | // INVISIBLE operators
         // 方向覆盖（Trojan Source, CVE-2021-42574）
         '\u{202A}' | // LEFT-TO-RIGHT EMBEDDING
         '\u{202B}' | // RIGHT-TO-LEFT EMBEDDING

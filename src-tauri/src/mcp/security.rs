@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 
 const SAFE_ENV_VARS: &[&str] = &["PATH", "HOME", "USER", "LANG"];
 
-pub fn filter_safe_env_vars(env: &std::collections::HashMap<String, String>) -> std::collections::HashMap<String, String> {
+pub fn filter_safe_env_vars(
+    env: &std::collections::HashMap<String, String>,
+) -> std::collections::HashMap<String, String> {
     let safe: HashSet<&str> = SAFE_ENV_VARS.iter().copied().collect();
     env.iter()
         .filter(|(k, _)| safe.contains(k.as_str()))
@@ -58,7 +60,7 @@ fn sha256_digest(data: &[u8]) -> [u8; 32] {
 }
 
 mod sha2_assumed {
-    pub use sha2::{Sha256, Digest};
+    pub use sha2::{Digest, Sha256};
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

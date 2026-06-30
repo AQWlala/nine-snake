@@ -11,7 +11,10 @@ use nine_snake_lib::skills::types as skill_types;
 
 fn temp_sqlite() -> (std::path::PathBuf, Arc<SqliteStore>) {
     let mut p = std::env::temp_dir();
-    p.push(format!("nine_snake_skills_test_{}.db", uuid::Uuid::new_v4()));
+    p.push(format!(
+        "nine_snake_skills_test_{}.db",
+        uuid::Uuid::new_v4()
+    ));
     let sqlite = Arc::new(SqliteStore::open(&p).unwrap());
     {
         let conn = sqlite.raw_connection();
@@ -107,7 +110,11 @@ fn rate_skill_accumulates_with_weighted_average() {
         .find(|x| x.id == s.id)
         .unwrap();
     assert_eq!(got.rating_count, 2);
-    assert!((got.avg_rating - 3.0).abs() < 1e-6, "got avg={}", got.avg_rating);
+    assert!(
+        (got.avg_rating - 3.0).abs() < 1e-6,
+        "got avg={}",
+        got.avg_rating
+    );
 
     cleanup(&p);
 }
@@ -175,8 +182,10 @@ async fn use_skill_with_unknown_language_returns_friendly_error() {
         .await;
     let err = res.expect_err("expected error for unsupported shell language");
     let msg = format!("{err}");
-    assert!(msg.contains("not supported") || msg.contains("v0.5"),
-            "unexpected error: {msg}");
+    assert!(
+        msg.contains("not supported") || msg.contains("v0.5"),
+        "unexpected error: {msg}"
+    );
 
     cleanup(&p);
 }

@@ -37,13 +37,22 @@ pub struct ChatMessage {
 
 impl ChatMessage {
     pub fn system(content: impl Into<String>) -> Self {
-        Self { role: "system".into(), content: content.into() }
+        Self {
+            role: "system".into(),
+            content: content.into(),
+        }
     }
     pub fn user(content: impl Into<String>) -> Self {
-        Self { role: "user".into(), content: content.into() }
+        Self {
+            role: "user".into(),
+            content: content.into(),
+        }
     }
     pub fn assistant(content: impl Into<String>) -> Self {
-        Self { role: "assistant".into(), content: content.into() }
+        Self {
+            role: "assistant".into(),
+            content: content.into(),
+        }
     }
 }
 
@@ -100,7 +109,10 @@ impl OllamaClient {
             .timeout(Duration::from_secs(120))
             .build()
             .expect("reqwest client should build");
-        Self { base_url: base_url.into(), http }
+        Self {
+            base_url: base_url.into(),
+            http,
+        }
     }
 
     /// Returns the configured base URL.
@@ -115,9 +127,17 @@ impl OllamaClient {
     }
 
     /// Issues a non-streaming chat completion.
-    pub async fn chat(&self, model: &str, messages: &[ChatMessage]) -> anyhow::Result<ChatResponse> {
+    pub async fn chat(
+        &self,
+        model: &str,
+        messages: &[ChatMessage],
+    ) -> anyhow::Result<ChatResponse> {
         let url = format!("{}/api/chat", self.base_url);
-        let req = ChatRequest { model, messages, stream: false };
+        let req = ChatRequest {
+            model,
+            messages,
+            stream: false,
+        };
         let resp: ChatResponse = self
             .http
             .post(&url)
@@ -133,7 +153,11 @@ impl OllamaClient {
     /// Issues a non-streaming generation.
     pub async fn generate(&self, model: &str, prompt: &str) -> anyhow::Result<GenerateResponse> {
         let url = format!("{}/api/generate", self.base_url);
-        let req = GenerateRequest { model, prompt, stream: false };
+        let req = GenerateRequest {
+            model,
+            prompt,
+            stream: false,
+        };
         let resp: GenerateResponse = self
             .http
             .post(&url)

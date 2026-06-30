@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tracing::{instrument, warn};
 
-use crate::api::server::{NineSnakeService, SearchMemoryHit, SearchMemoryRequest, StoreMemoryRequest, StoreMemoryResponse};
-use crate::memory::types::{Memory, MemoryLayer, SourceKind};
+use crate::api::server::{
+    NineSnakeService, SearchMemoryHit, SearchMemoryRequest, StoreMemoryRequest, StoreMemoryResponse,
+};
 use crate::commands::error::CommandError;
+use crate::memory::types::{Memory, MemoryLayer, SourceKind};
 use crate::AppState;
 
 /// Tauri command: store a memory.
@@ -123,10 +125,7 @@ pub async fn memory_update_importance(
 /// Tauri command: hard-delete a memory.
 #[tauri::command]
 #[instrument(skip(state), fields(otel.kind = "memory_delete"))]
-pub async fn memory_delete(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<bool, CommandError> {
+pub async fn memory_delete(state: State<'_, AppState>, id: String) -> Result<bool, CommandError> {
     let sqlite = state.sqlite.clone();
     let id_for_thread = id.clone();
     let res = tokio::task::spawn(async move { sqlite.delete(&id_for_thread).await })
@@ -177,5 +176,8 @@ pub async fn memory_stats(state: State<'_, AppState>) -> Result<MemoryStats, Com
         .map_err(|e| CommandError::internal("memory_stats", &anyhow::anyhow!("{e}")))?
         .map_err(|e| CommandError::db("memory_stats", &e))?;
     let total = rows.values().sum();
-    Ok(MemoryStats { total, by_layer: rows })
+    Ok(MemoryStats {
+        total,
+        by_layer: rows,
+    })
 }

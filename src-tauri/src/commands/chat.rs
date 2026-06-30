@@ -5,11 +5,10 @@ use tauri::State;
 use tracing::{info, instrument, warn};
 
 use crate::api::server::{ChatRequestDto, NineSnakeService, StoreMemoryRequest};
+use crate::commands::error::CommandError;
 use crate::llm::ChatMessage;
 use crate::memory::types::{MemoryLayer, MemoryType, SourceKind};
-use crate::commands::error::CommandError;
 use crate::AppState;
-
 
 /// Tauri command: send a chat message, return the assistant reply, and
 /// persist both sides to memory (L1).
@@ -30,7 +29,7 @@ pub async fn chat(
                 "blocked critical injection / credential leak in chat"
             );
             return Err(CommandError::validation("chat").with_details(
-                "输入包含潜在的安全风险（注入攻击或凭证泄露），已被拦截".to_string()
+                "输入包含潜在的安全风险（注入攻击或凭证泄露），已被拦截".to_string(),
             ));
         }
         if !scan.safe {
@@ -83,7 +82,7 @@ pub async fn chat_stream(
     if let Some(severity) = scan.max_severity {
         if severity >= crate::security::injection_guard::InjectionSeverity::Critical {
             return Err(CommandError::validation("chat_stream").with_details(
-                "输入包含潜在的安全风险（注入攻击或凭证泄露），已被拦截".to_string()
+                "输入包含潜在的安全风险（注入攻击或凭证泄露），已被拦截".to_string(),
             ));
         }
     }
@@ -96,21 +95,15 @@ pub async fn chat_stream(
 
     let stream = state.llm.chat_stream(msgs);
     use futures::StreamExt;
-    let tokens: Vec<crate::llm::StreamToken> = stream
-        .filter_map(|r| async move { r.ok() })
-        .collect()
-        .await;
+    let tokens: Vec<crate::llm::StreamToken> =
+        stream.filter_map(|r| async move { r.ok() }).collect().await;
     Ok(tokens)
 }
 
 /// Persist a chat turn (user prompt + assistant reply) as a pair of
 /// L1 Episodic memories. Best-effort; errors are surfaced to the
 /// caller so the spawn-and-forget site can log them.
-async fn absorb_chat_turn(
-    state: &AppState,
-    user_msg: &str,
-    asst_msg: &str,
-) -> anyhow::Result<()> {
+async fn absorb_chat_turn(state: &AppState, user_msg: &str, asst_msg: &str) -> anyhow::Result<()> {
     if !user_msg.trim().is_empty() {
         let req = StoreMemoryRequest {
             content: user_msg.to_string(),

@@ -17,9 +17,7 @@ fn fresh() -> (tempfile::TempDir, EditorState) {
 #[test]
 fn open_read_write_round_trip() {
     let (_dir, state) = fresh();
-    let written = state
-        .write_file("hello.txt", "hello world")
-        .expect("write");
+    let written = state.write_file("hello.txt", "hello world").expect("write");
     assert_eq!(written.content, "hello world");
     let read = state.read_file("hello.txt").expect("read");
     assert_eq!(read.content, "hello world");
@@ -50,7 +48,11 @@ fn read_rejects_path_outside_workspace() {
 fn list_tree_returns_files_and_directories() {
     let (_dir, state) = fresh();
     fs::create_dir(state.workspace_root().join("src")).unwrap();
-    fs::write(state.workspace_root().join("src").join("main.rs"), "fn main(){}").unwrap();
+    fs::write(
+        state.workspace_root().join("src").join("main.rs"),
+        "fn main(){}",
+    )
+    .unwrap();
     fs::write(state.workspace_root().join("README.md"), "# test").unwrap();
     let tree = state.list_tree(Some(3)).expect("list");
     let paths: Vec<&str> = tree.iter().map(|e| e.path.as_str()).collect();

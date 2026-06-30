@@ -290,8 +290,8 @@ fn discover_migrations(dir: &Path) -> Result<Vec<Migration>> {
         return Ok(Vec::new());
     }
     let mut out: Vec<Migration> = Vec::new();
-    for entry in fs::read_dir(dir)
-        .with_context(|| format!("reading migrations dir {}", dir.display()))?
+    for entry in
+        fs::read_dir(dir).with_context(|| format!("reading migrations dir {}", dir.display()))?
     {
         let entry = entry?;
         let path = entry.path();
@@ -347,14 +347,19 @@ mod tests {
         let n = SEQ.fetch_add(1, Ordering::Relaxed);
         let dir = std::env::temp_dir();
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join(format!("nine_snake_mig_test_{}_{}.db", std::process::id(), n));
+        let path = dir.join(format!(
+            "nine_snake_mig_test_{}_{}.db",
+            std::process::id(),
+            n
+        ));
         let conn = Connection::open(&path).unwrap();
         (path, conn)
     }
 
     fn temp_dir() -> std::path::PathBuf {
         let n = SEQ.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("nine_snake_mig_dir_{}_{}", std::process::id(), n));
+        let dir =
+            std::env::temp_dir().join(format!("nine_snake_mig_dir_{}_{}", std::process::id(), n));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -418,9 +423,15 @@ mod tests {
     #[test]
     fn parse_filename_handles_edge_cases() {
         assert_eq!(parse_filename("001_a.sql"), Some((1, "a".to_string())));
-        assert_eq!(parse_filename("123_xyz.sql"), Some((123, "xyz".to_string())));
+        assert_eq!(
+            parse_filename("123_xyz.sql"),
+            Some((123, "xyz".to_string()))
+        );
         assert_eq!(parse_filename("abc.sql"), None);
-        assert_eq!(parse_filename("01_leading_zero.sql"), Some((1, "leading_zero".to_string())));
+        assert_eq!(
+            parse_filename("01_leading_zero.sql"),
+            Some((1, "leading_zero".to_string()))
+        );
     }
 
     #[test]
@@ -483,7 +494,6 @@ mod tests {
         assert!(parts[0].contains("t1"));
         assert!(parts[1].contains("t2"));
     }
-
 
     #[test]
     fn run_migrations_applies_pending_only() {

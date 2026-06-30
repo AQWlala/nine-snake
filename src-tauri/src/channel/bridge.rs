@@ -130,34 +130,32 @@ impl MessageBridge {
     pub async fn poll(&self) -> Vec<ChannelMessage> {
         let url = format!("{}/messages", self.endpoint);
         match self.client.get(&url).send().await {
-            Ok(resp) => {
-                match resp.json::<Vec<JiuwenSwarmMessage>>().await {
-                    Ok(msgs) => {
-                        let count = msgs.len();
-                        let converted: Vec<ChannelMessage> = msgs
-                            .into_iter()
-                            .map(|m| ChannelMessage {
-                                session_id: m.session_id,
-                                channel: parse_channel(&m.channel),
-                                sender: m.sender.unwrap_or_default(),
-                                body: m.content,
-                                conversation_id: m.conversation_id,
-                                timestamp_ms: m.timestamp_ms,
-                            })
-                            .collect();
-                        self.received.fetch_add(count as u64, Ordering::Relaxed);
-                        if count > 0 {
-                            info!(target: "nine_snake.channel", count, "received messages");
-                        }
-                        converted
+            Ok(resp) => match resp.json::<Vec<JiuwenSwarmMessage>>().await {
+                Ok(msgs) => {
+                    let count = msgs.len();
+                    let converted: Vec<ChannelMessage> = msgs
+                        .into_iter()
+                        .map(|m| ChannelMessage {
+                            session_id: m.session_id,
+                            channel: parse_channel(&m.channel),
+                            sender: m.sender.unwrap_or_default(),
+                            body: m.content,
+                            conversation_id: m.conversation_id,
+                            timestamp_ms: m.timestamp_ms,
+                        })
+                        .collect();
+                    self.received.fetch_add(count as u64, Ordering::Relaxed);
+                    if count > 0 {
+                        info!(target: "nine_snake.channel", count, "received messages");
                     }
-                    Err(e) => {
-                        let msg = format!("failed to parse messages: {e}");
-                        self.set_error(&msg);
-                        Vec::new()
-                    }
+                    converted
                 }
-            }
+                Err(e) => {
+                    let msg = format!("failed to parse messages: {e}");
+                    self.set_error(&msg);
+                    Vec::new()
+                }
+            },
             Err(e) => {
                 let msg = format!("poll error: {e}");
                 self.set_error(&msg);

@@ -27,6 +27,4 @@ pub use pairing::{
     answer_from_qr_string, answer_to_qr_string, offer_from_qr_string, offer_to_qr_string,
     PairingAnswer, PairingOffer, PairingStage, PairingState, PAIRING_VERSION,
 };
-pub use transport::{
-    recv_all_unsealed, send_sealed, InboxMessage, LocalTransport,
-};
+pub use transport::{recv_all_unsealed, send_sealed, InboxMessage, LocalTransport};

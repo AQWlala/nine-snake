@@ -211,7 +211,12 @@ pub struct MultiGranularity {
 
 impl MultiGranularity {
     /// Builds a `MultiGranularity` from raw pre-computed strings.
-    pub fn new(s50: impl Into<String>, s150: impl Into<String>, s500: impl Into<String>, s2000: impl Into<String>) -> Self {
+    pub fn new(
+        s50: impl Into<String>,
+        s150: impl Into<String>,
+        s500: impl Into<String>,
+        s2000: impl Into<String>,
+    ) -> Self {
         Self {
             s50: s50.into(),
             s150: s150.into(),
@@ -359,7 +364,13 @@ pub fn sensitive_text_predicate(text: &str) -> bool {
     let mut run: usize = 0;
     let mut best_run: usize = 0;
     for ch in text.chars() {
-        if ch.is_ascii_alphanumeric() || ch == '+' || ch == '/' || ch == '=' || ch == '-' || ch == '_' {
+        if ch.is_ascii_alphanumeric()
+            || ch == '+'
+            || ch == '/'
+            || ch == '='
+            || ch == '-'
+            || ch == '_'
+        {
             run = run.saturating_add(1);
             if run > best_run {
                 best_run = run;
@@ -453,22 +464,45 @@ mod tests {
     #[test]
     fn only_l7_is_immutable() {
         assert!(MemoryLayer::L7.is_immutable());
-        for l in [MemoryLayer::L0, MemoryLayer::L1, MemoryLayer::L2, MemoryLayer::L3, MemoryLayer::L4, MemoryLayer::L5, MemoryLayer::L6] {
+        for l in [
+            MemoryLayer::L0,
+            MemoryLayer::L1,
+            MemoryLayer::L2,
+            MemoryLayer::L3,
+            MemoryLayer::L4,
+            MemoryLayer::L5,
+            MemoryLayer::L6,
+        ] {
             assert!(!l.is_immutable());
         }
     }
 
     #[test]
     fn memory_new_initialises_pinned_for_l7() {
-        let m = Memory::new(MemoryType::Semantic, MemoryLayer::L7, "core", SourceKind::System);
+        let m = Memory::new(
+            MemoryType::Semantic,
+            MemoryLayer::L7,
+            "core",
+            SourceKind::System,
+        );
         assert!(m.pinned);
-        let m2 = Memory::new(MemoryType::Semantic, MemoryLayer::L3, "fact", SourceKind::UserInput);
+        let m2 = Memory::new(
+            MemoryType::Semantic,
+            MemoryLayer::L3,
+            "fact",
+            SourceKind::UserInput,
+        );
         assert!(!m2.pinned);
     }
 
     #[test]
     fn touch_increments_counter() {
-        let mut m = Memory::new(MemoryType::Episodic, MemoryLayer::L1, "hi", SourceKind::UserInput);
+        let mut m = Memory::new(
+            MemoryType::Episodic,
+            MemoryLayer::L1,
+            "hi",
+            SourceKind::UserInput,
+        );
         let before = m.access_count;
         m.touch(123);
         assert_eq!(m.access_count, before + 1);

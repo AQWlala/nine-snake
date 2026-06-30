@@ -27,6 +27,12 @@ pub struct CrdtMergeResult {
 
 pub struct CrdtEngine;
 
+impl Default for CrdtEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CrdtEngine {
     pub fn new() -> Self {
         Self
@@ -64,11 +70,7 @@ impl CrdtEngine {
         }
     }
 
-    pub fn merge_fields(
-        &self,
-        local: &CrdtVersion,
-        remote: &CrdtVersion,
-    ) -> CrdtMergeResult {
+    pub fn merge_fields(&self, local: &CrdtVersion, remote: &CrdtVersion) -> CrdtMergeResult {
         let local_fields: std::collections::HashMap<&str, &FieldChange> = local
             .field_changes
             .iter()
@@ -146,7 +148,13 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn make_version(memory_id: &str, version: u64, device_id: &str, ts: i64, fields: Vec<FieldChange>) -> CrdtVersion {
+    fn make_version(
+        memory_id: &str,
+        version: u64,
+        device_id: &str,
+        ts: i64,
+        fields: Vec<FieldChange>,
+    ) -> CrdtVersion {
         CrdtVersion {
             memory_id: memory_id.to_string(),
             version,
@@ -175,24 +183,56 @@ mod tests {
 
     #[test]
     fn field_level_merge_keeps_both_sides() {
-        let local = make_version("m1", 1, "dev-a", 100, vec![
-            FieldChange { field: "content".into(), old_value: json!("old"), new_value: json!("local-content") },
-        ]);
-        let remote = make_version("m1", 1, "dev-b", 100, vec![
-            FieldChange { field: "importance".into(), old_value: json!(0.5), new_value: json!(0.9) },
-        ]);
+        let local = make_version(
+            "m1",
+            1,
+            "dev-a",
+            100,
+            vec![FieldChange {
+                field: "content".into(),
+                old_value: json!("old"),
+                new_value: json!("local-content"),
+            }],
+        );
+        let remote = make_version(
+            "m1",
+            1,
+            "dev-b",
+            100,
+            vec![FieldChange {
+                field: "importance".into(),
+                old_value: json!(0.5),
+                new_value: json!(0.9),
+            }],
+        );
         let result = CrdtEngine::new().merge_fields(&local, &remote);
         assert_eq!(result.winner.field_changes.len(), 2);
     }
 
     #[test]
     fn field_level_merge_same_field_uses_lww() {
-        let local = make_version("m1", 1, "dev-a", 100, vec![
-            FieldChange { field: "content".into(), old_value: json!("old"), new_value: json!("local") },
-        ]);
-        let remote = make_version("m1", 1, "dev-b", 200, vec![
-            FieldChange { field: "content".into(), old_value: json!("old"), new_value: json!("remote") },
-        ]);
+        let local = make_version(
+            "m1",
+            1,
+            "dev-a",
+            100,
+            vec![FieldChange {
+                field: "content".into(),
+                old_value: json!("old"),
+                new_value: json!("local"),
+            }],
+        );
+        let remote = make_version(
+            "m1",
+            1,
+            "dev-b",
+            200,
+            vec![FieldChange {
+                field: "content".into(),
+                old_value: json!("old"),
+                new_value: json!("remote"),
+            }],
+        );
         let result = CrdtEngine::new().merge_fields(&local, &remote);
         assert_eq!(result.winner.field_changes.len(), 1);
         assert_eq!(result.winner.field_changes[0].new_value, json!("remote"));

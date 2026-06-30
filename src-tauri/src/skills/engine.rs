@@ -111,8 +111,8 @@
 
 use std::collections::HashMap;
 use std::io::Read;
-use std::sync::Arc;
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -123,12 +123,12 @@ use tracing::{debug, error, warn};
 use crate::llm::{ChatMessage, LlmGateway};
 use crate::memory::sqlite_store::SqliteStore;
 
+use super::audit::{redact_if_sensitive, truncate_summary, SkillAuditEntry, SkillAuditLogger};
 use super::store::SkillStore;
 use super::types::{
-    CreateSkillRequest, ListSkillsRequest, RateSkillRequest, Skill, SkillResult, SkillSearchRequest,
-    UseSkillRequest,
+    CreateSkillRequest, ListSkillsRequest, RateSkillRequest, Skill, SkillResult,
+    SkillSearchRequest, UseSkillRequest,
 };
-use super::audit::{SkillAuditEntry, SkillAuditLogger, redact_if_sensitive, truncate_summary};
 
 /// v1.0 P0#5: hard wall-clock limit for a single skill run.
 const SKILL_TIMEOUT: Duration = Duration::from_secs(5);
@@ -253,11 +253,19 @@ impl SkillEngine {
     pub fn new(sqlite: Arc<SqliteStore>, llm: Arc<LlmGateway>) -> Self {
         let store = SkillStore::new((*sqlite).clone())
             .expect("SkillStore::new must succeed when migrations have been run");
-        Self { store, llm, audit: None }
+        Self {
+            store,
+            llm,
+            audit: None,
+        }
     }
 
     pub fn from_store(store: SkillStore, llm: Arc<LlmGateway>) -> Self {
-        Self { store, llm, audit: None }
+        Self {
+            store,
+            llm,
+            audit: None,
+        }
     }
 
     pub fn with_audit(mut self, audit: Arc<SkillAuditLogger>) -> Self {
@@ -309,9 +317,9 @@ impl SkillEngine {
             min_confidence: req.min_confidence,
         };
         self.store.insert(&skill)?;
-        self.store.get(&skill.id)?.ok_or_else(|| {
-            anyhow!("skill {} disappeared immediately after insert", skill.id)
-        })
+        self.store
+            .get(&skill.id)?
+            .ok_or_else(|| anyhow!("skill {} disappeared immediately after insert", skill.id))
     }
 
     /// Runs a skill. See module docs for the two execution modes.
@@ -352,9 +360,8 @@ impl SkillEngine {
                 Ok((output, _)) => (truncate_summary(output), true, "clean".to_string()),
                 Err(e) => (truncate_summary(&e.to_string()), false, "error".to_string()),
             };
-            let input_summary = redact_if_sensitive(
-                &req.params.values().cloned().collect::<Vec<_>>().join(" ")
-            );
+            let input_summary =
+                redact_if_sensitive(&req.params.values().cloned().collect::<Vec<_>>().join(" "));
             let entry = SkillAuditEntry {
                 id: uuid::Uuid::new_v4().to_string(),
                 skill_id: skill.id.clone(),
@@ -452,13 +459,13 @@ impl SkillEngine {
         // is removed).
         let tmp = tempfile::NamedTempFile::new()
             .context("creating sandboxed temp file for skill code")?;
-            {
-                use std::io::Write as _;
-                let mut f = tmp.reopen().context("reopening temp file for writing")?;
-                f.write_all(prepended.as_bytes())
-                    .context("writing skill code to sandboxed temp file")?;
-                f.flush().ok();
-            }
+        {
+            use std::io::Write as _;
+            let mut f = tmp.reopen().context("reopening temp file for writing")?;
+            f.write_all(prepended.as_bytes())
+                .context("writing skill code to sandboxed temp file")?;
+            f.flush().ok();
+        }
         let script_path = tmp.path().to_path_buf();
 
         debug!(
@@ -503,9 +510,9 @@ impl SkillEngine {
                     SKILL_TIMEOUT
                 ))
             }
-            Err(mpsc::RecvTimeoutError::Disconnected) => Err(anyhow!(
-                "skill worker thread disconnected unexpectedly"
-            )),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err(anyhow!("skill worker thread disconnected unexpectedly"))
+            }
         }
     }
 
@@ -516,7 +523,7 @@ impl SkillEngine {
     ) -> Result<(String, u32)> {
         #[cfg(feature = "wasm-sandbox")]
         {
-            use super::sandbox::{WasmSandbox, WasmSandboxConfig, CapabilitySet, Capability};
+            use super::sandbox::{Capability, CapabilitySet, WasmSandbox, WasmSandboxConfig};
 
             let mut caps = CapabilitySet::new();
             caps.grant(Capability::LlmCall);
@@ -524,18 +531,19 @@ impl SkillEngine {
                 capabilities: caps,
                 max_fuel: 1_000_000,
             };
-            let sandbox = WasmSandbox::new(&config)
-                .map_err(|e| anyhow!("WASM sandbox init failed: {e}"))?;
+            let sandbox =
+                WasmSandbox::new(&config).map_err(|e| anyhow!("WASM sandbox init failed: {e}"))?;
 
-            let code_bytes = if let Ok(decoded) = base64::engine::general_purpose::STANDARD
-                .decode(skill.code.trim())
+            let code_bytes = if let Ok(decoded) =
+                base64::engine::general_purpose::STANDARD.decode(skill.code.trim())
             {
                 decoded
             } else {
                 skill.code.as_bytes().to_vec()
             };
 
-            let result = sandbox.execute(&code_bytes, "_start")
+            let result = sandbox
+                .execute(&code_bytes, "_start")
                 .map_err(|e| anyhow!("WASM execution failed: {e}"))?;
 
             if result.success {
@@ -564,7 +572,11 @@ impl SkillEngine {
                 let combined = truncate_output(&stdout, &stderr);
                 Ok((combined, 0))
             }
-            ShellOutcome::NonZero { code, stdout, stderr } => {
+            ShellOutcome::NonZero {
+                code,
+                stdout,
+                stderr,
+            } => {
                 let mut out = truncate_output(&stdout, &stderr);
                 if !out.is_empty() && !out.ends_with('\n') {
                     out.push('\n');
@@ -580,7 +592,10 @@ impl SkillEngine {
                     id = %skill_id,
                     "subprocess killed by timeout"
                 );
-                Err(anyhow!("skill execution exceeded the {:?} timeout", SKILL_TIMEOUT))
+                Err(anyhow!(
+                    "skill execution exceeded the {:?} timeout",
+                    SKILL_TIMEOUT
+                ))
             }
         }
     }
@@ -593,8 +608,11 @@ impl SkillEngine {
 
     /// Lists skills.
     pub fn list_skills(&self, req: ListSkillsRequest) -> Result<Vec<Skill>> {
-        self.store
-            .list(req.language.as_deref(), req.tag.as_deref(), req.limit.max(1))
+        self.store.list(
+            req.language.as_deref(),
+            req.tag.as_deref(),
+            req.limit.max(1),
+        )
     }
 
     /// Searches skills by name / description / tags.
@@ -637,9 +655,7 @@ enum ShellOutcome {
 /// Returns `true` if `language` is on the v1.0 P0#5 allow-list.
 fn is_accepted_language(language: &str) -> bool {
     let normalised = language.trim().to_ascii_lowercase();
-    ALLOWED_SHELL_LANGUAGES
-        .iter()
-        .any(|l| **l == normalised)
+    ALLOWED_SHELL_LANGUAGES.iter().any(|l| **l == normalised)
 }
 
 /// Truncates combined stdout+stderr to at most `MAX_OUTPUT_BYTES`
@@ -892,7 +908,10 @@ mod tests {
 
     fn temp_db() -> (PathBuf, Arc<SqliteStore>) {
         let mut p = std::env::temp_dir();
-        p.push(format!("nine_snake_skill_engine_test_{}.db", uuid::Uuid::new_v4()));
+        p.push(format!(
+            "nine_snake_skill_engine_test_{}.db",
+            uuid::Uuid::new_v4()
+        ));
         let sqlite = Arc::new(SqliteStore::open(&p).unwrap());
         {
             let rc = sqlite.raw_connection();
@@ -1076,7 +1095,16 @@ mod tests {
     /// v1.0 P0#5: sh, node, javascript, rust must all be rejected.
     #[tokio::test]
     async fn use_skill_other_languages_are_rejected() {
-        for lang in ["sh", "node", "javascript", "js", "rust", "ruby", "perl", "powershell"] {
+        for lang in [
+            "sh",
+            "node",
+            "javascript",
+            "js",
+            "rust",
+            "ruby",
+            "perl",
+            "powershell",
+        ] {
             let (p, sqlite) = temp_db();
             let eng = SkillEngine::new(sqlite, llm());
             let s = eng
@@ -1098,8 +1126,10 @@ mod tests {
                 .await;
             assert!(res.is_err(), "language {lang} should be rejected");
             let msg = format!("{}", res.unwrap_err());
-            assert!(msg.contains("not supported") && msg.contains("v1.0"),
-                    "language {lang}: unexpected error {msg}");
+            assert!(
+                msg.contains("not supported") && msg.contains("v1.0"),
+                "language {lang}: unexpected error {msg}"
+            );
             cleanup(&p);
         }
     }
@@ -1143,7 +1173,10 @@ mod tests {
                 let msg = format!("{e}");
                 // Either the timeout fired (good) or python was missing
                 // (acceptable in CI).  We must NOT have hung the test.
-                assert!(elapsed < Duration::from_secs(20), "test ran too long: {elapsed:?}");
+                assert!(
+                    elapsed < Duration::from_secs(20),
+                    "test ran too long: {elapsed:?}"
+                );
                 let _ = msg;
             }
         }
@@ -1224,8 +1257,7 @@ mod tests {
                 let stderr_s = String::from_utf8_lossy(&stderr);
                 let lower = stderr_s.to_ascii_lowercase();
                 assert!(
-                    lower.contains("permissionerror")
-                        || lower.contains("disabled by nine-snake"),
+                    lower.contains("permissionerror") || lower.contains("disabled by nine-snake"),
                     "expected PermissionError, got code={code} stderr={stderr_s}"
                 );
             }
@@ -1255,8 +1287,7 @@ mod tests {
                 let stderr_s = String::from_utf8_lossy(&stderr);
                 let lower = stderr_s.to_ascii_lowercase();
                 assert!(
-                    lower.contains("permissionerror")
-                        || lower.contains("disabled by nine-snake"),
+                    lower.contains("permissionerror") || lower.contains("disabled by nine-snake"),
                     "expected PermissionError, got stderr={stderr_s}"
                 );
             }

@@ -158,11 +158,7 @@ fn hash_envelope_id(id: &str) -> u64 {
 /// Convenience: encrypts `plaintext` with the pair's session key
 /// and drops the resulting envelope into the transport.  Returns
 /// the envelope id used (uuid v4).
-pub fn send_sealed(
-    transport: &LocalTransport,
-    pair: &Pair,
-    plaintext: &[u8],
-) -> Result<String> {
+pub fn send_sealed(transport: &LocalTransport, pair: &Pair, plaintext: &[u8]) -> Result<String> {
     let env = pair.encrypt(plaintext)?;
     let id = uuid::Uuid::new_v4().to_string();
     transport.send(&id, &env)?;
@@ -171,7 +167,10 @@ pub fn send_sealed(
 
 /// Convenience: reads the inbox, decrypts each envelope, and
 /// returns `(envelope_id, plaintext)` pairs in arrival order.
-pub fn recv_all_unsealed(transport: &LocalTransport, pair: &Pair) -> Result<Vec<(String, Vec<u8>)>> {
+pub fn recv_all_unsealed(
+    transport: &LocalTransport,
+    pair: &Pair,
+) -> Result<Vec<(String, Vec<u8>)>> {
     let mut out = Vec::new();
     for msg in transport.recv()? {
         let pt = pair.decrypt(&msg.envelope)?;

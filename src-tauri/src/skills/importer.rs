@@ -138,7 +138,6 @@ impl SkillImporter {
     ///
     /// Resolves the slug to `https://raw.githubusercontent.com/{org}/clawhub-skills/main/{slug}/SKILL.md`.
     pub async fn import_from_clawhub(&self, slug: &str) -> ImportResult {
-
         // ClawHub slugs are typically `org/skill-name`.
         // The raw URL pattern is: raw.githubusercontent.com/{org}/clawhub-skills/main/{skill}/SKILL.md
         let url = if slug.contains('/') {
@@ -253,18 +252,20 @@ impl SkillImporter {
         }
 
         let rest = &trimmed[3..];
-        let end = rest.find("---").context("unclosed front-matter (missing closing '---')")?;
+        let end = rest
+            .find("---")
+            .context("unclosed front-matter (missing closing '---')")?;
 
         let yaml_str = &rest[..end];
 
-        let yaml_value: serde_yaml::Value = serde_yaml::from_str(yaml_str)
-            .with_context(|| "YAML front-matter parse error")?;
+        let yaml_value: serde_yaml::Value =
+            serde_yaml::from_str(yaml_str).with_context(|| "YAML front-matter parse error")?;
 
-        let json_str = serde_json::to_string(&yaml_value)
-            .with_context(|| "YAML-to-JSON conversion error")?;
+        let json_str =
+            serde_json::to_string(&yaml_value).with_context(|| "YAML-to-JSON conversion error")?;
 
-        let json_value: serde_json::Value = serde_json::from_str(&json_str)
-            .with_context(|| "JSON round-trip error")?;
+        let json_value: serde_json::Value =
+            serde_json::from_str(&json_str).with_context(|| "JSON round-trip error")?;
 
         Ok(json_value)
     }
@@ -323,7 +324,10 @@ mod tests {
     #[test]
     fn test_parse_yaml_front_matter() {
         let importer = SkillImporter {
-            store: SkillStore::new(crate::memory::sqlite_store::SqliteStore::open(":memory:").unwrap()).unwrap(),
+            store: SkillStore::new(
+                crate::memory::sqlite_store::SqliteStore::open(":memory:").unwrap(),
+            )
+            .unwrap(),
             client: Client::new(),
         };
 
@@ -351,9 +355,7 @@ tags: [summarization, nlp, utility]
 
     #[test]
     fn test_extract_body() {
-        let body = SkillImporter::extract_body(
-            "---\nname: test\n---\n\n# Title\n\nContent here",
-        );
+        let body = SkillImporter::extract_body("---\nname: test\n---\n\n# Title\n\nContent here");
         assert_eq!(body, "# Title\n\nContent here");
     }
 }

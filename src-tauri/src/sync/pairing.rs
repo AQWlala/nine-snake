@@ -103,7 +103,10 @@ impl PairingState {
     #[instrument(skip(self))]
     pub fn generate_offer(&mut self) -> Result<PairingOffer> {
         if self.stage != PairingStage::Init && self.stage != PairingStage::Paired {
-            return Err(anyhow!("invalid stage for generating offer: {:?}", self.stage));
+            return Err(anyhow!(
+                "invalid stage for generating offer: {:?}",
+                self.stage
+            ));
         }
 
         // Generate ephemeral key pair
@@ -130,18 +133,23 @@ impl PairingState {
         }
 
         if self.stage != PairingStage::Init && self.stage != PairingStage::Paired {
-            return Err(anyhow!("invalid stage for processing offer: {:?}", self.stage));
+            return Err(anyhow!(
+                "invalid stage for processing offer: {:?}",
+                self.stage
+            ));
         }
 
         // Decode ephemeral public key
-        let ephemeral_bytes = B64.decode(&offer.ephemeral_pubkey)
+        let ephemeral_bytes = B64
+            .decode(&offer.ephemeral_pubkey)
             .context("decoding ephemeral pubkey")?;
         if ephemeral_bytes.len() != 32 {
             return Err(anyhow!("ephemeral pubkey must be 32 bytes"));
         }
 
         // Decode peer static public key from plaintext
-        let peer_static_pubkey = B64.decode(&offer.static_pubkey)
+        let peer_static_pubkey = B64
+            .decode(&offer.static_pubkey)
             .context("decoding peer static pubkey")?;
         if peer_static_pubkey.len() != 32 {
             return Err(anyhow!("peer static pubkey must be 32 bytes"));
@@ -152,15 +160,17 @@ impl PairingState {
 
         // Derive session key from static keys (ECDH)
         let peer_public_key = x25519_dalek::PublicKey::from(
-            TryInto::<[u8; 32]>::try_into(peer_static_pubkey).unwrap()
+            TryInto::<[u8; 32]>::try_into(peer_static_pubkey).unwrap(),
         );
         let session = self.local_identity.derive_session_key(&peer_public_key);
 
         // Generate encrypted confirmation
         let confirmation_payload = b"PAIRING_CONFIRMED";
-        let confirmation_env = session.encrypt(confirmation_payload)
+        let confirmation_env = session
+            .encrypt(confirmation_payload)
             .context("encrypting confirmation")?;
-        let confirmation_json = confirmation_env.to_b64_json()
+        let confirmation_json = confirmation_env
+            .to_b64_json()
             .context("serializing confirmation")?;
 
         self.session_key = Some(session);
@@ -182,11 +192,15 @@ impl PairingState {
         }
 
         if self.stage != PairingStage::OfferGenerated {
-            return Err(anyhow!("invalid stage for processing answer: {:?}", self.stage));
+            return Err(anyhow!(
+                "invalid stage for processing answer: {:?}",
+                self.stage
+            ));
         }
 
         // 解码响应设备的静态公钥
-        let peer_static_bytes = B64.decode(&answer.static_pubkey)
+        let peer_static_bytes = B64
+            .decode(&answer.static_pubkey)
             .context("decoding static pubkey")?;
         if peer_static_bytes.len() != 32 {
             return Err(anyhow!("static pubkey must be 32 bytes"));
@@ -207,12 +221,13 @@ impl PairingState {
 
         // 派生会话密钥
         let peer_public_key = x25519_dalek::PublicKey::from(
-            TryInto::<[u8; 32]>::try_into(peer_static_bytes).unwrap()
+            TryInto::<[u8; 32]>::try_into(peer_static_bytes).unwrap(),
         );
         let session = self.local_identity.derive_session_key(&peer_public_key);
 
         // 验证确认信息
-        let _pt = session.decrypt(&confirmation_env)
+        let _pt = session
+            .decrypt(&confirmation_env)
             .context("decrypting confirmation")?;
 
         self.session_key = Some(session);
@@ -252,26 +267,22 @@ impl Default for PairingState {
 
 /// 将 PairingOffer 序列化为 QR 码字符串
 pub fn offer_to_qr_string(offer: &PairingOffer) -> Result<String> {
-    serde_json::to_string(offer)
-        .context("serializing pairing offer")
+    serde_json::to_string(offer).context("serializing pairing offer")
 }
 
 /// 从 QR 码字符串解析 PairingOffer
 pub fn offer_from_qr_string(qr: &str) -> Result<PairingOffer> {
-    serde_json::from_str(qr)
-        .context("parsing pairing offer from QR")
+    serde_json::from_str(qr).context("parsing pairing offer from QR")
 }
 
 /// 将 PairingAnswer 序列化为 QR 码字符串
 pub fn answer_to_qr_string(answer: &PairingAnswer) -> Result<String> {
-    serde_json::to_string(answer)
-        .context("serializing pairing answer")
+    serde_json::to_string(answer).context("serializing pairing answer")
 }
 
 /// 从 QR 码字符串解析 PairingAnswer
 pub fn answer_from_qr_string(qr: &str) -> Result<PairingAnswer> {
-    serde_json::from_str(qr)
-        .context("parsing pairing answer from QR")
+    serde_json::from_str(qr).context("parsing pairing answer from QR")
 }
 
 #[cfg(test)]
