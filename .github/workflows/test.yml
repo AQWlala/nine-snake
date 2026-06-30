@@ -44,28 +44,30 @@ jobs:
       - name: Build tests
         # Split compile from test execution so that the cache post-step
         # can persist compiled artifacts even if a later step fails.
-        # Previously `cargo test` combined compile+test in one step;
-        # when the cold compile (>120 min for LanceDB/datafusion) hit
-        # the step timeout, the job was cancelled, the Post Cache step
-        # was skipped, and no cache was ever saved (infinite loop).
         working-directory: src-tauri
         timeout-minutes: 180
         env:
           RUST_BACKTRACE: 1
-          # Less debug info => faster compile.  We only need line tables
-          # for backtraces, not full variable inspection.
           CARGO_PROFILE_DEV_DEBUG: "0"
         run: cargo build --tests --features grpc,channels,did-identity,crdt-sync
+      - name: Install cargo-nextest
+        # nextest provides per-test timeouts (--timeout 120s) which
+        # kill hanging tests instead of letting them block the entire
+        # suite for 60 minutes.  Without this, one hanging integration
+        # test (e.g. a gRPC server waiting for a connection) blocks all
+        # subsequent tests when running with --test-threads=1.
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
       - name: Test
-        # Tests run against already-compiled binaries from the Build
-        # step above.  With --test-threads=1 and hundreds of tests
-        # (some spawning Python subprocesses, shell commands, or temp
-        # DBs), the full suite can take 30-50 min serially.
+        # nextest runs each test in its own process with a 2-min
+        # timeout.  Hanging tests are killed and reported as failures
+        # instead of blocking the suite indefinitely.
         working-directory: src-tauri
-        timeout-minutes: 60
+        timeout-minutes: 90
         env:
           RUST_BACKTRACE: 1
-        run: cargo test --features grpc,channels,did-identity,crdt-sync -- --test-threads=1 --nocapture
+        run: cargo nextest run --features grpc,channels,did-identity,crdt-sync --no-fail-fast --timeout 120s -j 1
       - name: Lint
         working-directory: src-tauri
         run: cargo clippy --features grpc,channels,did-identity,crdt-sync -- -D warnings
