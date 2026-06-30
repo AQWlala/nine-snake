@@ -83,12 +83,45 @@ jobs:
         # suite indefinitely.
         # Keep CARGO_PROFILE_DEV_DEBUG=0 to match the build step —
         # otherwise nextest would rebuild with full debug info.
+        # Output is captured to nextest-output.txt so the follow-up
+        # step can extract failed test names as GitHub annotations
+        # (the logs API returns 403, so we need annotations to see
+        # which tests failed).
         working-directory: src-tauri
         timeout-minutes: 90
+        shell: bash
         env:
           RUST_BACKTRACE: 1
           CARGO_PROFILE_DEV_DEBUG: "0"
-        run: cargo nextest run --features grpc,channels,did-identity,crdt-sync --no-fail-fast --test-threads 1
+        run: |
+          set -o pipefail
+          cargo nextest run --features grpc,channels,did-identity,crdt-sync --no-fail-fast --test-threads 1 2>&1 | tee nextest-output.txt
+      - name: Report failed tests
+        # Extract failed test names from nextest output and print them
+        # as GitHub Actions error annotations, which are visible via
+        # the check-runs annotations API (no auth needed).
+        if: always()
+        working-directory: src-tauri
+        shell: bash
+        run: |
+          echo "=== Test result summary ==="
+          if [ -f nextest-output.txt ]; then
+            # nextest prints lines like "FAIL  [   0.123s] module::test_name"
+            grep -E "^FAIL" nextest-output.txt | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            echo "=== Last 30 lines of output ==="
+            tail -n 30 nextest-output.txt
+          else
+            echo "::error::nextest-output.txt not found — Test step may not have run"
+          fi
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextest-output-${{ matrix.os }}
+          path: src-tauri/nextest-output.txt
+          retention-days: 7
       - name: Lint
         working-directory: src-tauri
         run: cargo clippy --features grpc,channels,did-identity,crdt-sync -- -D warnings
