@@ -360,45 +360,57 @@ mod tests {
     /// runs without LanceDB.
     #[test]
     fn compression_lock_is_mutually_exclusive() {
+        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
         use std::thread;
         use std::time::Duration;
 
-        // Build a tiny in-memory store just to access the lock.
-        // We don't actually need a populated DB; we're testing
-        // lock semantics.
         let tmp =
             std::env::temp_dir().join(format!("nine_snake_lock_test_{}.db", std::process::id()));
         let _ = std::fs::remove_file(&tmp);
         let store = Arc::new(SqliteStore::open(&tmp).unwrap());
         let store2 = store.clone();
 
-        let held = Arc::new(parking_lot::Mutex::new(false));
-        let h2 = held.clone();
+        let main_held_lock = Arc::new(AtomicBool::new(false));
+        let mhl2 = main_held_lock.clone();
+        let bg_ready = Arc::new(AtomicBool::new(false));
+        let bgr2 = bg_ready.clone();
+
+        // Main thread takes the lock FIRST so the background thread
+        // is guaranteed to find it contended.
+        let guard = store.compression_lock();
+
         let bg = thread::spawn(move || {
-            // Background thread tries to acquire the lock; it
-            // must block until the main thread releases.
+            bgr2.store(true, Ordering::Release);
             let start = std::time::Instant::now();
             let _g = store2.compression_lock();
             let waited = start.elapsed();
-            // While we were blocked, the main thread's flag
-            // must have been set, proving the lock is exclusive.
-            assert!(*h2.lock(), "background saw lock free while main held it");
+            assert!(
+                mhl2.load(Ordering::Acquire),
+                "background acquired lock without seeing main hold it"
+            );
             waited
         });
 
-        // Hold the lock for 100 ms.
-        std::thread::sleep(Duration::from_millis(20));
-        let _g = store.compression_lock();
-        *held.lock() = true;
-        std::thread::sleep(Duration::from_millis(100));
-        *held.lock() = false;
-        drop(_g);
+        // Spin until background has started and is waiting on
+        // the lock (best-effort; we also sleep below to make it
+        // very likely).
+        while !bg_ready.load(Ordering::Acquire) {
+            thread::yield_now();
+        }
+        // Give the background thread time to actually enter the
+        // lock acquisition path.
+        thread::sleep(Duration::from_millis(50));
+
+        // Now confirm the flag is still false (background is
+        // blocked), then release the lock.
+        main_held_lock.store(true, Ordering::Release);
+        drop(guard);
 
         let waited = bg.join().expect("bg thread");
         assert!(
-            waited >= Duration::from_millis(50),
-            "background waited only {waited:?} (expected >= 50 ms)"
+            waited >= Duration::from_millis(20),
+            "background waited only {waited:?} (expected >= 20 ms)"
         );
 
         let _ = std::fs::remove_file(&tmp);

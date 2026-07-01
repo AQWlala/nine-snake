@@ -152,11 +152,30 @@ pub fn migration_status(conn: &Connection, migrations_dir: &Path) -> Result<Migr
 
 fn apply_one(conn: &Connection, m: &Migration) -> Result<()> {
     debug!(target: "nine_snake.migration", version = m.version, name = %m.name, "applying");
+    let stmts = split_sql(&m.sql);
+    // PRAGMA statements (e.g. `PRAGMA journal_mode = WAL`) cannot
+    // run inside a transaction on SQLite.  We execute them *before*
+    // opening the transaction so the rest of the migration can run
+    // atomically.
+    let (pragmas, rest): (Vec<String>, Vec<String>) = stmts
+        .into_iter()
+        .partition(|s| statement_is_pragma(s));
+    for stmt in pragmas {
+        if stmt.trim().is_empty() {
+            continue;
+        }
+        if let Err(e) = conn.execute_batch(&stmt) {
+            let msg = format!("{e}");
+            if !is_idempotent_error(&msg) {
+                return Err(e).with_context(|| format!("pragmas statement: {stmt}"));
+            }
+        }
+    }
     let tx = conn.unchecked_transaction()?;
     // The migrator splits on `;` for granular error reporting so
     // that idempotent statements (e.g. `ALTER TABLE ... ADD COLUMN`
     // that fails with "duplicate column name") can be ignored.
-    apply_statements(&tx, &m.sql)
+    apply_statements_from_vec(&tx, &rest)
         .with_context(|| format!("executing migration body for version {}", m.version))?;
     // Bump user_version last so a failed migration leaves the previous
     // version intact.
@@ -166,15 +185,62 @@ fn apply_one(conn: &Connection, m: &Migration) -> Result<()> {
     Ok(())
 }
 
+/// Returns true if the first non-comment SQL keyword in `stmt` is
+/// `PRAGMA`.  Uses the same scanner as `split_sql` so line
+/// comments (`--`) and block comments (`/* ... */`) are skipped.
+fn statement_is_pragma(stmt: &str) -> bool {
+    let mut chars = stmt.chars().peekable();
+    let mut word_buf = String::new();
+    loop {
+        match chars.next() {
+            None => return false,
+            Some('-') if chars.peek() == Some(&'-') => {
+                // Line comment — skip to end of line.
+                for nc in chars.by_ref() {
+                    if nc == '\n' {
+                        break;
+                    }
+                }
+                word_buf.clear();
+            }
+            Some('/') if chars.peek() == Some(&'*') => {
+                // Block comment — skip until closing marker.
+                chars.next(); // consume '*'
+                while let Some(nc) = chars.next() {
+                    if nc == '*' && chars.peek() == Some(&'/') {
+                        chars.next();
+                        break;
+                    }
+                }
+                word_buf.clear();
+            }
+            Some(c) if c.is_alphabetic() => {
+                word_buf.push(c.to_ascii_uppercase());
+            }
+            Some(c) if c.is_whitespace() => {
+                if !word_buf.is_empty() {
+                    return word_buf == "PRAGMA";
+                }
+            }
+            Some(_) => {
+                if !word_buf.is_empty() {
+                    return word_buf == "PRAGMA";
+                }
+                return false;
+            }
+        }
+    }
+}
+
 /// Splits a multi-statement SQL script and applies each statement
 /// individually. Statements that fail with "duplicate column" or
 /// "already exists" are silently ignored (idempotent re-runs).
-fn apply_statements(conn: &Connection, sql: &str) -> Result<()> {
-    for stmt in split_sql(sql) {
+fn apply_statements_from_vec(conn: &Connection, stmts: &[String]) -> Result<()> {
+    for stmt in stmts {
         if stmt.trim().is_empty() {
             continue;
         }
-        if let Err(e) = conn.execute_batch(&stmt) {
+        if let Err(e) = conn.execute_batch(stmt) {
             let msg = format!("{e}");
             if is_idempotent_error(&msg) {
                 debug!(target: "nine_snake.migration", error = %msg, "ignoring idempotent error");
@@ -531,7 +597,10 @@ mod tests {
         .unwrap();
         std::fs::write(dir.join("002_second.sql"), "CREATE INDEX i1 ON t1(id);").unwrap();
 
-        // Pre-stamp user_version = 1.
+        // Simulate 001 already having been applied: create the table
+        // manually and stamp user_version = 1.
+        conn.execute_batch("CREATE TABLE t1 (id INTEGER PRIMARY KEY);")
+            .unwrap();
         conn.pragma_update(None, "user_version", 1i64).unwrap();
         let applied = run_migrations(&conn, &dir).unwrap();
         assert_eq!(applied.len(), 1);

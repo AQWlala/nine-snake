@@ -354,6 +354,7 @@ pub fn sensitive_text_predicate(text: &str) -> bool {
         "aws_access",
         "aws_secret",
         "private_key",
+        "private key",
         "client_secret",
     ];
     if TRIGGERS.iter().any(|t| lower.contains(t)) {

@@ -12,6 +12,7 @@ pub struct DidDocument {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub authentication: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(rename = "keyAgreement")]
     pub key_agreement: Vec<String>,
 }
 

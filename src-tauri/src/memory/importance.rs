@@ -320,10 +320,14 @@ mod tests {
     fn metacognitive_outranks_semantic_for_otherwise_equal_input() {
         // A metacognitive memory with the same access / recency /
         // feedback as a semantic one must score strictly higher.
+        // We use low access and old last_access so both scores stay
+        // well below the 1.0 clamp (otherwise the metacognitive score
+        // saturates at 1.0 and the difference is less than 0.3).
         let s = ImportanceScorer::new();
         let now = 1_700_000_000;
-        let a = make(MemoryType::Semantic, 5, now, Some(0.0));
-        let b = make(MemoryType::Metacognitive, 5, now, Some(0.0));
+        let old = now - 86_400 * 365;
+        let a = make(MemoryType::Semantic, 0, old, Some(-1.0));
+        let b = make(MemoryType::Metacognitive, 0, old, Some(-1.0));
         assert!(s.score(&b, now) > s.score(&a, now));
         // The difference is exactly `0.3` (the type weight).
         assert!((s.score(&b, now) - s.score(&a, now) - 0.3).abs() < 1e-5);

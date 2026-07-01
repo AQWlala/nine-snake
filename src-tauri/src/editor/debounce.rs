@@ -53,8 +53,24 @@ pub fn spawn_debounced(
                             // Channel closed: flush whatever is
                             // pending so the consumer sees the final
                             // state, then exit.
-                            for (_, ev) in pending.drain() {
-                                if tx.send(ev).await.is_err() { return; }
+                            if !pending.is_empty() {
+                                let mut paths: Vec<String> =
+                                    pending.keys().cloned().collect();
+                                paths.sort();
+                                paths.dedup();
+                                let last_kind = pending
+                                    .values()
+                                    .last()
+                                    .map(|e| e.kind.clone())
+                                    .unwrap_or_else(|| "modify".to_string());
+                                let coalesced = FileEvent {
+                                    kind: last_kind,
+                                    paths,
+                                };
+                                if tx.send(coalesced).await.is_err() {
+                                    return;
+                                }
+                                pending.clear();
                             }
                             return;
                         }

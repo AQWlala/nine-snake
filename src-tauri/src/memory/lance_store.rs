@@ -282,11 +282,12 @@ impl LanceStore {
         {
             if let Some(table) = self.ensure_table().await? {
                 let predicate = format!("{ID_COL} = '{}'", id.replace('\'', "''"));
-                // LanceDB Table is not Send; use block_in_place to avoid
-                // holding the non-Send handle across an async boundary.
-                let _ = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(table.delete(&predicate))
-                });
+                table
+                    .delete(&predicate)
+                    .await
+                    .unwrap_or_else(|e| {
+                        warn!(target: "nine_snake.memory", error = %e, "lance delete failed");
+                    });
             }
             Ok(removed)
         }

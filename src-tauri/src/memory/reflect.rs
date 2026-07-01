@@ -941,8 +941,8 @@ mod tests {
         assert_eq!(lessons.len(), 3);
     }
 
-    #[test]
-    fn engine_single_flight_drops_concurrent_calls() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn engine_single_flight_drops_concurrent_calls() {
         let (p, store) = temp_db();
         store
             .insert_guarded(&high_importance_mem("a", "x"))
@@ -950,14 +950,16 @@ mod tests {
         let engine = Arc::new(ReflectionEngine::new(store, None, ReflectConfig::default()));
         let e1 = engine.clone();
         let e2 = engine.clone();
-        let r1 = tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(async move { e1.reflect_now().await })
-            .unwrap();
-        let r2 = tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(async move { e2.reflect_now().await })
-            .unwrap();
+        // Launch both calls concurrently so single-flight can
+        // actually short-circuit one of them.  Previously this test
+        // used two sequential `Runtime::new().block_on()` calls,
+        // which meant the second call always saw the first call
+        // complete first — so single-flight never triggered.
+        let h1 = tokio::spawn(async move { e1.reflect_now().await.unwrap() });
+        let h2 = tokio::spawn(async move { e2.reflect_now().await.unwrap() });
+        let (r1, r2) = tokio::join!(h1, h2);
+        let r1 = r1.unwrap();
+        let r2 = r2.unwrap();
         // At most one of the two calls is allowed to produce a row;
         // the other is short-circuited.
         assert!(r1.len() + r2.len() <= 1);
