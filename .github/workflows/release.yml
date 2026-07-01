@@ -76,7 +76,7 @@ jobs:
         run: choco install -y --no-progress protoc 2>&1 | tail -n 5
 
       - name: Install Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: 'npm'
