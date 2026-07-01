@@ -4726,7 +4726,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nine-snake"
-version = "1.1.9"
+version = "1.1.10"
 dependencies = [
  "aes-gcm",
  "anyhow",

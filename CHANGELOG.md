@@ -2,6 +2,14 @@
 
 所有九头蛇版本的重要变更都会记录在这里。格式基于 [Keep a Changelog](https://keepachangelog.com/)。
 
+## [1.1.10] - 2026-07-01
+
+🔧 **启动修复版 — 修复 autostart 插件配置导致启动 panic**。
+
+### Fixed
+
+* 修复 `tauri.conf.json` 中 `plugins.autostart` 配置错误:`"autostart": {}` 应为 `"autostart": null`。`tauri-plugin-autostart` 期望 `null`(unit type),传 `{}`(map)导致反序列化失败,panic 在 `tauri::Builder::run()`,即 `windows_subsystem = "windows"` 下被静默吞掉,表现为双击完全无反应
+
 ## [1.1.9] - 2026-07-01
 
 🔧 **启动修复版 — 修复打包后无法启动的问题**。
