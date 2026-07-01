@@ -74,7 +74,7 @@ once_cell = "1.19"
 # v1.1 P1-4: regex for sensitive data detection patterns
 regex = "1.10"
 url = "2.5"
-lru = "0.12"
+lru = "0.18"
 futures = "0.3"
 async-stream = "0.3"
 # v0.3: gRPC stack. Gated behind the `grpc` feature (on by default).
