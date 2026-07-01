@@ -106,10 +106,17 @@ jobs:
         # so the script always runs to completion even when grep finds
         # no matches (grep returns exit code 1 on no match).
         #
-        # We grep for multiple patterns to catch ALL failures:
-        #   * "panicked at" — Rust panic messages (file:line + message)
-        #   * "FAIL"        — nextest's FAIL result lines (any format)
-        #   * "TEST RESULT" — nextest's summary line (pass/fail counts)
+        # GitHub limits annotations to 10 per step, so we print the
+        # most important lines first (failures > summary > tail).
+        #
+        # We grep for multiple patterns to catch ALL nextest failure types:
+        #   * "panicked at"  — Rust panic messages (file:line + message)
+        #   * "FAIL"         — nextest's FAIL result lines
+        #   * "CANCEL"       — nextest's timeout/cancelled test lines
+        #   * "Terminating"  — nextest's slow-timeout kill message
+        #   * "ERROR"        — nextest's binary setup error lines
+        #   * "ABORT"        — nextest's aborted test lines
+        #   * "Summary"      — nextest's summary line (pass/fail counts)
         if: always()
         working-directory: src-tauri
         shell: bash
@@ -118,35 +125,28 @@ jobs:
           echo "=== Test result summary ==="
           if [ -f nextest-output.txt ]; then
             echo "File size: $(wc -c < nextest-output.txt) bytes, $(wc -l < nextest-output.txt) lines"
-            echo "--- Panics ---"
-            panics=$(grep -E "panicked at" nextest-output.txt)
-            if [ -n "$panics" ]; then
-              echo "$panics" | while IFS= read -r line; do
+            # Collect all failure-related lines into one stream,
+            # prioritised: panics first, then FAIL, then CANCEL, etc.
+            failures=$(grep -E "panicked at|FAIL|CANCEL|Terminating|ERROR|ABORT" nextest-output.txt | head -n 10)
+            if [ -n "$failures" ]; then
+              echo "--- Failures (as annotations) ---"
+              echo "$failures" | while IFS= read -r line; do
                 echo "::error::$line"
               done
+            else
+              echo "--- No standard failure lines found ---"
+              echo "::error::No failure lines (FAIL/CANCEL/ERROR/panicked) found in output"
             fi
-            echo "--- FAIL lines ---"
-            fails=$(grep -E "FAIL" nextest-output.txt)
-            if [ -n "$fails" ]; then
-              echo "$fails" | while IFS= read -r line; do
-                echo "::error::$line"
-              done
-            fi
-            echo "--- TEST RESULT summary ---"
-            summary=$(grep -E "TEST RESULT" nextest-output.txt)
+            # nextest summary line (may contain pass/fail counts)
+            summary=$(grep -E "Summary|Tests:|TEST RESULT|tests? run" nextest-output.txt)
             if [ -n "$summary" ]; then
-              echo "$summary" | while IFS= read -r line; do
-                echo "::error::$line"
-              done
+              echo "--- Summary ---"
+              echo "$summary"
             fi
-            if [ -z "$panics" ] && [ -z "$fails" ]; then
-              echo "::error::No 'panicked at' or 'FAIL' lines found. Last 60 lines:"
-              tail -n 60 nextest-output.txt | while IFS= read -r line; do
-                echo "::error::$line"
-              done
-            fi
-            echo "=== Last 60 lines of output ==="
-            tail -n 60 nextest-output.txt
+            # Always print the full output to the log (not as annotations)
+            # so we can debug even when annotations are truncated.
+            echo "=== Full nextest output ==="
+            cat nextest-output.txt
           else
             echo "::error::nextest-output.txt not found — Test step may not have run"
           fi

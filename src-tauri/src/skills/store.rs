@@ -195,9 +195,9 @@ impl SkillStore {
     /// (old_count + 1)`.
     pub fn rate(&self, id: &str, rating: f32) -> Result<Skill> {
         let now = chrono::Utc::now().timestamp();
-        // Use millisecond precision for skill_ratings.created_at to
-        // avoid PK collisions when two ratings land in the same second
-        // (the table's PRIMARY KEY is (skill_id, created_at)).
+        // Millisecond precision for analytics; the PK is an
+        // auto-increment id (migration 018), so there is no
+        // collision risk regardless of timestamp resolution.
         let rating_ts = chrono::Utc::now().timestamp_millis();
         {
             let g = self.conn.lock();

@@ -238,7 +238,11 @@ impl WorkEngine {
     /// accumulator is finalised).
     pub fn start_timer(&self, id: &str) -> Result<WorkTask> {
         // First stop any other running timer.
-        if let Some(prev) = self.active_timer.lock().clone() {
+        // NOTE: must release the active_timer lock before calling
+        // stop_timer(), which also locks active_timer.  parking_lot
+        // Mutex is non-reentrant → holding the lock here would deadlock.
+        let prev = self.active_timer.lock().clone();
+        if let Some(prev) = prev {
             if prev != id {
                 self.stop_timer()?;
             }
