@@ -136,14 +136,14 @@ jobs:
 
       - name: Upload build log (always)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-log-minimal-${{ matrix.platform }}
           path: build-logs/
           if-no-files-found: ignore
 
       - name: Upload installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nine-snake-minimal-${{ matrix.platform }}
           path: |

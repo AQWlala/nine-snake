@@ -169,7 +169,7 @@ jobs:
           fi
       - name: Upload test output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nextest-output-${{ matrix.os }}
           path: src-tauri/nextest-output.txt
@@ -202,7 +202,7 @@ jobs:
           cat audit-output.txt
       - name: Upload audit output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: audit-output-${{ runner.os }}
           path: src-tauri/audit-output.txt
