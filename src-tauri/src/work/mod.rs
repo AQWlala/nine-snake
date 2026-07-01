@@ -167,16 +167,18 @@ impl WorkEngine {
         } else {
             None
         };
-        let conn = self.sqlite.raw_connection();
-        let conn = conn.lock();
-        let n = conn.execute(
-            "UPDATE work_tasks SET status = ?1, updated_at = ?2, completed_at = ?3 WHERE id = ?4",
-            params![status.as_str(), now, completed_at, id],
-        )?;
-        if n == 0 {
-            return Err(anyhow!("task not found: {id}"));
-        }
-        // Stop the timer if this task was being timed.
+        {
+            let conn = self.sqlite.raw_connection();
+            let conn = conn.lock();
+            let n = conn.execute(
+                "UPDATE work_tasks SET status = ?1, updated_at = ?2, completed_at = ?3 WHERE id = ?4",
+                params![status.as_str(), now, completed_at, id],
+            )?;
+            if n == 0 {
+                return Err(anyhow!("task not found: {id}"));
+            }
+        } // conn dropped here — lock released before calling self.get_task()
+          // Stop the timer if this task was being timed.
         let mut active = self.active_timer.lock();
         if active.as_deref() == Some(id) {
             *active = None;
@@ -197,9 +199,8 @@ impl WorkEngine {
         due_at: Option<Option<i64>>,
     ) -> Result<WorkTask> {
         let now = Utc::now().timestamp();
-        let conn = self.sqlite.raw_connection();
-        let conn = conn.lock();
-        // Load first so we can merge.
+        // Load first so we can merge — call get_task BEFORE locking
+        // to avoid deadlocking on the non-reentrant parking_lot Mutex.
         let current = self
             .get_task(id)?
             .ok_or_else(|| anyhow!("task not found: {id}"))?;
@@ -207,11 +208,14 @@ impl WorkEngine {
         let new_desc = description.unwrap_or(current.description);
         let new_priority = priority.map(|p| p.clamp(0, 3)).unwrap_or(current.priority);
         let new_due = due_at.unwrap_or(current.due_at);
-        conn.execute(
-            "UPDATE work_tasks SET title = ?1, description = ?2, priority = ?3, due_at = ?4, updated_at = ?5 WHERE id = ?6",
-            params![new_title, new_desc, new_priority, new_due, now, id],
-        )?;
-        drop(conn);
+        {
+            let conn = self.sqlite.raw_connection();
+            let conn = conn.lock();
+            conn.execute(
+                "UPDATE work_tasks SET title = ?1, description = ?2, priority = ?3, due_at = ?4, updated_at = ?5 WHERE id = ?6",
+                params![new_title, new_desc, new_priority, new_due, now, id],
+            )?;
+        } // conn dropped here — lock released before calling self.get_task()
         self.get_task(id)?
             .ok_or_else(|| anyhow!("task vanished after update: {id}"))
     }

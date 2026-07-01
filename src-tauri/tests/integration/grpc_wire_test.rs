@@ -100,12 +100,9 @@ async fn start_test_server() -> SocketAddr {
 async fn server_binds_and_accepts_tcp_connection() {
     // Wrap the server start in a 30-second timeout to avoid
     // hanging indefinitely if AppState::bootstrap is slow on CI.
-    let addr = tokio::time::timeout(
-        Duration::from_secs(30),
-        start_test_server(),
-    )
-    .await
-    .expect("server start timed out (30s)");
+    let addr = tokio::time::timeout(Duration::from_secs(30), start_test_server())
+        .await
+        .expect("server start timed out (30s)");
 
     // Open a plain TCP connection. We don't send a gRPC preface
     // (the wire shim is a stub anyway); we just want to confirm
@@ -123,10 +120,10 @@ async fn server_binds_and_accepts_tcp_connection() {
     let mut buf = [0u8; 256];
     let read = tokio::time::timeout(Duration::from_secs(5), stream.read(&mut buf)).await;
     match read {
-        Ok(Ok(0)) => {}    // EOF — server closed
-        Ok(Ok(_)) => {}    // Server sent SETTINGS frame — connection accepted
+        Ok(Ok(0)) => {} // EOF — server closed
+        Ok(Ok(_)) => {} // Server sent SETTINGS frame — connection accepted
         Ok(Err(e)) => panic!("read error: {e}"),
-        Err(_) => {}       // Timeout — server waiting for client preface
+        Err(_) => {} // Timeout — server waiting for client preface
     }
 }
 

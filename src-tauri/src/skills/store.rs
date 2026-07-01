@@ -195,33 +195,39 @@ impl SkillStore {
     /// (old_count + 1)`.
     pub fn rate(&self, id: &str, rating: f32) -> Result<Skill> {
         let now = chrono::Utc::now().timestamp();
-        let g = self.conn.lock();
-        let tx = g.unchecked_transaction()?;
-        // Insert the raw rating first.
-        tx.execute(
-            "INSERT INTO skill_ratings(skill_id, rating, created_at) VALUES (?1, ?2, ?3)",
-            params![id, rating, now],
-        )?;
-        let (old_count, old_avg): (i64, f64) = tx
-            .query_row(
-                "SELECT rating_count, avg_rating FROM skills WHERE id = ?1",
-                params![id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .optional()?
-            .ok_or_else(|| anyhow!("skill not found: {id}"))?;
-        let new_count = old_count + 1;
-        let new_avg = if old_count == 0 {
-            rating as f64
-        } else {
-            (old_avg * old_count as f64 + rating as f64) / new_count as f64
-        };
-        tx.execute(
-            "UPDATE skills SET rating_count = ?2, avg_rating = ?3, updated_at = ?4
-             WHERE id = ?1",
-            params![id, new_count, new_avg, now],
-        )?;
-        tx.commit()?;
+        // Use millisecond precision for skill_ratings.created_at to
+        // avoid PK collisions when two ratings land in the same second
+        // (the table's PRIMARY KEY is (skill_id, created_at)).
+        let rating_ts = chrono::Utc::now().timestamp_millis();
+        {
+            let g = self.conn.lock();
+            let tx = g.unchecked_transaction()?;
+            // Insert the raw rating first.
+            tx.execute(
+                "INSERT INTO skill_ratings(skill_id, rating, created_at) VALUES (?1, ?2, ?3)",
+                params![id, rating, rating_ts],
+            )?;
+            let (old_count, old_avg): (i64, f64) = tx
+                .query_row(
+                    "SELECT rating_count, avg_rating FROM skills WHERE id = ?1",
+                    params![id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?
+                .ok_or_else(|| anyhow!("skill not found: {id}"))?;
+            let new_count = old_count + 1;
+            let new_avg = if old_count == 0 {
+                rating as f64
+            } else {
+                (old_avg * old_count as f64 + rating as f64) / new_count as f64
+            };
+            tx.execute(
+                "UPDATE skills SET rating_count = ?2, avg_rating = ?3, updated_at = ?4
+                 WHERE id = ?1",
+                params![id, new_count, new_avg, now],
+            )?;
+            tx.commit()?;
+        } // g dropped here — lock released before calling self.get()
         self.get(id)?
             .ok_or_else(|| anyhow!("skill disappeared after update: {id}"))
             .context("rate")

@@ -157,9 +157,8 @@ fn apply_one(conn: &Connection, m: &Migration) -> Result<()> {
     // run inside a transaction on SQLite.  We execute them *before*
     // opening the transaction so the rest of the migration can run
     // atomically.
-    let (pragmas, rest): (Vec<String>, Vec<String>) = stmts
-        .into_iter()
-        .partition(|s| statement_is_pragma(s));
+    let (pragmas, rest): (Vec<String>, Vec<String>) =
+        stmts.into_iter().partition(|s| statement_is_pragma(s));
     for stmt in pragmas {
         if stmt.trim().is_empty() {
             continue;

@@ -150,8 +150,7 @@ async fn blackhole_and_sponge_concurrent_no_partial_read() {
                 // the compression lock.
                 {
                     let _g = s.compression_lock();
-                    h.block_on(s.insert(&m))
-                        .expect("insert");
+                    h.block_on(s.insert(&m)).expect("insert");
                 }
             }
         }));

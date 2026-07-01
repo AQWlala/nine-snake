@@ -23,7 +23,7 @@ fn high(id: &str, content: &str) -> Memory {
     m
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn reflection_round_trip_through_database() {
     let tmp = super::common::TmpStore::new();
 
